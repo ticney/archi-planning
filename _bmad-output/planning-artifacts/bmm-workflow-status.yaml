@@ -23,9 +23,11 @@ workflow_status:
         command: "/bmad:bmm:workflows:research"
       - id: "product-brief"
         name: "Product Brief"
-        status: "pending"
+        status: "complete"
         agent: "analyst"
         command: "/bmad:bmm:workflows:create-product-brief"
+        output_file: "d:/Dev/Architecture Planning/_bmad-output/planning-artifacts/product-brief-Architecture Planning-2026-01-18.md"
+        completed_at: "2026-01-18T20:50:28+01:00"
 
   - phase: "2 - Planning"
     workflows:
