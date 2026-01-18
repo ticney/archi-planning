@@ -1,5 +1,10 @@
 ---
-stepsCompleted: ['step-01-init']
+stepsCompleted: ['step-01-init', 'step-02-discovery']
+classification:
+  projectType: saas_b2b
+  domain: Enterprise Governance
+  complexity: High
+  projectContext: Greenfield
 inputDocuments: ['product-brief-Architecture Planning-2026-01-18.md']
 documentCounts:
   briefCount: 1
