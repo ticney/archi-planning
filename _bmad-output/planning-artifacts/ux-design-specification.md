@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 inputDocuments:
   - "d:/Dev/Architecture Planning/_bmad-output/planning-artifacts/prd.md"
   - "d:/Dev/Architecture Planning/_bmad-output/planning-artifacts/product-brief-Architecture Planning-2026-01-18.md"
@@ -57,6 +57,127 @@ The **Archiboard Platform** is a Quality Governance Platform that shifts the par
 3.  **Constructive Guardrails:** The system is a safety net, not a wall.
 
 <!-- UX design content will be appended sequentially through collaborative workflow steps -->
+
+## Responsive Design & Accessibility
+
+### Responsive Strategy (Desktop-First, Mobile-Ready)
+Prioritize the Desk/Office experience (95% usage), but ensure the application is **fully functional on mobile** for the "Transit/Emergency" use case (5% usage).
+
+*   **Desktop (Primary):** "The Cockpit". High density, Master-Detail split view, simultaneous information visibility.
+*   **Mobile (Secondary):** "The Companion". Stacked view. Focus on "Consultation" and "Status Checking".
+    *   **Behavior:** The Master-Detail view collapses. The List becomes the Home Screen. Clicking a project navigates to a full-screen Detail View.
+    *   **Constraints:** Complex editing (e.g., uploading large architectural diagrams) is possible but not optimized. Quick actions (validating, checking status) are optimized.
+
+### Breakpoint Strategy
+*   **Desktop (>1024px):** Split View active. Sidebar visible.
+*   **Tablet (768px - 1024px):** Sidebar collapses to Icon Rail. Split View maintained if space permits, else Stacked.
+*   **Mobile (<768px):** Single Column. Full-width cards. Hamburger menu for navigation.
+
+### Accessibility Strategy (WCAG 2.1 AA)
+*   **Keyboard Navigation:** Critical for the Reviewer persona (Power User). Arrow keys to navigate the project grid, `Enter` to open, `Esc` to close details.
+*   **Semantic HTML:** Use proper landmarks (`<nav>`, `<main>`, `<aside>`) to ensure Screen Readers understand the "Cockpit" layout.
+*   **Color Contrast:** Maintain `4.5:1` contrast for text, especially within the density of the grid. ensure "Status Colors" (Red/Green) have accompanying icons or text labels for color-blind users.
+
+## UX Consistency Patterns
+
+### Button Hierarchy (The Action Model)
+We strictly limit the cognitive load of actions:
+*   **Primary Action (`MH Blue`):** Only ONE per screen view (e.g., "Request Review", "Book Slot").
+*   **Secondary Action (`Outline`):** For safe alternative paths ("Edit", "Download", "Save Draft").
+*   **Destructive Action (`Coral` Text):** No fill unless it's a confirmation modal. Reduces accidental clicks.
+
+### Feedback Pattern (The Notification Model)
+*   **Toasts (Transient):** Use for successful system actions that don't require further input ("Saved", "Link Copied").
+*   **Banners (Persistent):** Use for blocking states that persist until resolved ("Review Blocked by Security").
+*   **Inline (Contextual):** Use for immediate form validation errors.
+
+### Navigation Pattern (The "Deep Link" Model)
+*   **Master-Detail Behavior:** Clicking a project row **opens the Detail Pane**; it does NOT trigger a full page navigation. This preserves the Reviewer's list context.
+*   **Back Button Logic:** In the application context, "Back" closes the Detail Pane (`ESC` key behavior), returning focus to the List.
+*   **URL Strategy:** URLs *should* update (e.g., `/projects/123`) to allow deep-linking, but the transition is an SPA state change, not a reload.
+
+## Component Strategy
+
+### Design System Components (Shadcn/UI Base)
+We will leverage the following standard components directly:
+*   **Structure:** `Card`, `Resizable` (for Master/Detail), `Sheet` (for Help).
+*   **Data:** `Table` (TanStack), `Badge` (Status), `Avatar`.
+*   **Input:** `Form`, `Select`, `Combobox`, `DatePicker`.
+
+### Custom Components (Governance Specific)
+
+#### 1. `<MaturityGauge />`
+*   **Purpose:** Visualizes the aggregate readiness of a project across multiple dimensions (Security, Tech, Ops).
+*   **Anatomy:** A segmented track (like a car speedometer or Health bar). 3 Segments. 0-33% (Red), 33-66% (Yellow), 66-100% (Green).
+*   **States:** `Loading`, `Incomplete` (Ghosted), `Complete` (Solid Color).
+*   **Usage:** Appears in the Project Row (Mini) and Top of Wizard (Large).
+
+#### 2. `<WizardShell />`
+*   **Purpose:** Enforces the "Guided Check" mental model. Prevents users from getting lost in a 50-input form.
+*   **Anatomy:**
+    *   **Header:** Step Name + Progress Dots.
+    *   **Body:** Single focus question or form group.
+    *   **Footer:** "Back", "Next", "Save Draft" (Auto-save indicator).
+*   **Interaction:** Keyboard accessible (`Enter` to Next).
+
+#### 3. `<SmartBadge />` (Interactive Status)
+*   **Purpose:** Allows rapid status updates from the list view (The "Zero-Click" pattern).
+*   **Anatomy:** Looks like a standard Badge. On Hover, expands to show `Reject` (X) and `Approve` (Check) icon buttons.
+*   **States:** `Idle` (Static Text), `Hover` (Actions revealed), `Loading` (Spinner replaced icon), `Success` (Green flash).
+
+### Implementation Roadmap
+*   **Phase 1 (Core):** Setup Shadcn + Build `<SmartBadge />` (Critical for Reviewer Flow).
+*   **Phase 2 (Wizard):** Build `<WizardShell />` + `<MaturityGauge />` (Critical for Leader Flow).
+*   **Phase 3 (Polish):** Advanced animations for the Gauge and Row transitions.
+
+## User Journey Flows
+
+### Journey 1: The Project Leader ("Getting to Green")
+**Goal:** A Project Leader needs to transition their project from "Blocked" to "Ready" by satisfying governance checks.
+**Trigger:** Needs to book a slot for an upcoming architecture review.
+
+```mermaid
+graph TD
+    A[Start: Dashboard] -->|Sees 'Blocked' Status| B{Click Project}
+    B --> C[Detail Pane Opens]
+    C -->|Maturity Gauge at 40%| D[Wizard Step 1: Security]
+    D -->|Question: PII Data?| E{Has PII?}
+    E -->|Yes| F[Upload Encryption Plan]
+    E -->|No| G[Auto-Pass Security]
+    F --> H[Wizard Step 2: Architecture]
+    G --> H
+    H -->|Upload Diagram| I[Wizard Step 3: Ops]
+    I -->|Link Runbook| J[Checks Complete]
+    J -->|Gauge hits 100%| K[Enable 'Book Slot' Button]
+    K --> L[Click Book Slot]
+    L --> M[End: Confirmed]
+```
+
+### Journey 2: The Reviewer ("The Zero-Click Clear")
+**Goal:** A Reviewer needs to validate "Clean" projects efficiently to focus time on "Problem" projects.
+**Trigger:** Dedicated review time block (Morning governance sweep).
+
+```mermaid
+graph TD
+    A[Start: Cockpit View] -->|Scan List| B[Identify 'Ready' Projects]
+    B -->|Hover Row| C[Popover: Summary Stats]
+    C --> D{Checks Green?}
+    D -->|All Green| E[Click 'Quick Validate' Action]
+    E --> F[Row Turns Green]
+    D -->|Issues Found| G[Click to Open Detail]
+    G --> H[Reject Specific Item]
+    H --> I[Send Feedback Notification]
+```
+
+### Journey Patterns
+*   **The "Context Drawers"** (Detail Pane): Never leave the list. Details always slide in or appear adjacent to the context.
+*   **The "Progressive Disclosure"** (Wizard): Don't show 50 inputs. Show 3 relevant inputs based on the previous answer.
+*   **The "Stateful Actions"**: Buttons change state. "Submit" becomes "Success" instantly.
+
+### Flow Optimization Principles
+*   **Review Speed:** Minimizing clicks for the "Happy Path" (Validating a good project).
+*   **Error Recovery:** If a check fails (e.g., Runbook link 404s), show the error *inline* immediately, don't wait for a full "Submit".
+*   **Positive Reinforcement:** Fill the gauge visually. Give dopamine for administrative compliance.
 
 ## Design Direction Decision
 
