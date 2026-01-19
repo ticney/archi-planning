@@ -1,0 +1,79 @@
+# generated: 2026-01-19
+# project: Architecture Planning
+# project_key: Architecture Planning
+# tracking_system: file-system
+# story_location: d:\Dev\Architecture Planning\_bmad-output\implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-19
+project: Architecture Planning
+project_key: Architecture Planning
+tracking_system: file-system
+story_location: d:\Dev\Architecture Planning\_bmad-output\implementation-artifacts
+
+development_status:
+  # Epic 1: Identity & Foundation
+  epic-1: backlog
+  1-1-user-authentication-login: backlog
+  1-2-role-based-access-control-rbac-foundation: backlog
+  1-3-admin-user-role-management: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Governance Request Submission (The Leader)
+  epic-2: backlog
+  2-1-governance-request-wizard-initialization: backlog
+  2-2-topic-selection-prerequisite-logic: backlog
+  2-3-mandatory-document-upload-the-guardrail: backlog
+  2-4-request-submission: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Governance Review (The Reviewer)
+  epic-3: backlog
+  3-1-reviewer-dashboard-the-cockpit: backlog
+  3-2-governance-validation-the-green-button: backlog
+  3-3-governance-rejection-the-guardrail: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Intelligent Scheduling (The Organizer)
+  epic-4: backlog
+  4-1-elastic-slot-duration-logic-backend-rule: backlog
+  4-2-tentative-booking-request: backlog
+  4-3-master-schedule-view: backlog
+  4-4-schedule-confirmation-export: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Platform Administration & Operations
+  epic-5: backlog
+  5-1-dynamic-checklist-management-the-brain: backlog
+  5-2-automated-notifications: backlog
+  5-3-audit-logging: backlog
+  5-4-scheduler-availability-rules: backlog
+  epic-5-retrospective: optional
