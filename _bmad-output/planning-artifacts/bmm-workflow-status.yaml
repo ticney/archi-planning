@@ -33,9 +33,11 @@ workflow_status:
     workflows:
       - id: "prd"
         name: "Product Requirements Document"
-        status: "pending"
+        status: "complete"
         agent: "pm"
         command: "/bmad:bmm:workflows:create-prd"
+        output_file: "d:/Dev/Architecture Planning/_bmad-output/planning-artifacts/prd.md"
+        completed_at: "2026-01-18T21:07:00+01:00"
       - id: "create-ux-design"
         name: "UX Design"
         status: "pending"
