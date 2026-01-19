@@ -50,9 +50,11 @@ workflow_status:
     workflows:
       - id: "create-architecture"
         name: "System Architecture"
-        status: "pending"
+        status: "complete"
         agent: "architect"
         command: "/bmad:bmm:workflows:create-architecture"
+        output_file: "d:/Dev/Architecture Planning/_bmad-output/planning-artifacts/architecture.md"
+        completed_at: "2026-01-19T10:59:00+01:00"
       - id: "create-epics-and-stories"
         name: "Epics & Stories"
         status: "pending"
