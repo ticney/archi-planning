@@ -43,5 +43,10 @@ As an Admin, I want to manage user roles so that I can control access to differe
 ## Dev Agent Records
 - **Implementation Strategy**: Used Option A (Service Role client) to fetch user list from `auth.users` and join with `public.profiles`.
 - **Security**: Double-layered security with RLS policies and explicit Role checks in Service Layer + Server Actions. Service Role key is only accessed insecurely within `AdminUserService`.
-- **Testing Constraints**: E2E test `admin-rbac.spec.ts` demonstrates logic but encounters environment/cookie issues in the CI runner preventing actual login simulation for Admin. Manually verified logic. `login.spec.ts` (validation) passes. Unit tests for service layer pass.
+- **Testing Constraints**: E2E test `admin-rbac.spec.ts` verified successfully after fixing seed data roles.
 - **Redirects**: Fixed missing redirects in `loginAction` and `middleware.ts` to route Admins effectively to `/dashboard/admin/users`.
+- **Code Review Fixes (2026-01-20)**:
+    - Added Self-Lockout prevention in `updateRole`.
+    - Added RLS policies for Admin access.
+    - Unskipped and verified E2E tests.
+    - Improved redirect logic in `users/page.tsx`.

@@ -36,6 +36,12 @@ export async function updateRole(data: UpdateRoleValues): Promise<ActionResult<v
         return { success: false, error: "Invalid input" };
     }
 
+    // CRITICAL: Self-Lockout Prevention
+    // Prevent Admins from removing their own admin status
+    if (user.id === validated.data.userId && validated.data.role !== 'admin') {
+        return { success: false, error: "You cannot remove your own Admin privileges." };
+    }
+
     const success = await AdminUserService.updateUserRole(
         user.id,
         validated.data.userId,

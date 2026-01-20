@@ -5,7 +5,7 @@ test.describe("Admin RBAC", () => {
     // We assume seed data exists or we seed it here
     // For now, we'll try to login as seeded users
 
-    test.skip("Admin can access user management", async ({ page }) => {
+    test("Admin can access user management", async ({ page }) => {
 
         await page.goto("/login");
         await page.getByLabel("Email address").fill("admin.e2e@example.com");
