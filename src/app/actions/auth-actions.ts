@@ -16,6 +16,8 @@ export async function loginAction(data: LoginFormValues): Promise<ActionResult<v
     const role = await AuthService.getUserRole(result.data.user.id || "");
 
     switch (role) {
+        case "admin":
+            redirect("/dashboard/admin/users");
         case "reviewer":
             redirect("/dashboard/reviewer");
         case "organizer":

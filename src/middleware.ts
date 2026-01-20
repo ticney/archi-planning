@@ -33,34 +33,58 @@ export async function middleware(request: NextRequest) {
     // supabase.auth.getUser(). A simple mistake could make it very hard to debug
     // issues with users being randomly logged out.
 
+
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
+    // 1. Enforce Auth for Protected Routes
     if (
         !user &&
-        !request.nextUrl.pathname.startsWith("/login") &&
-        !request.nextUrl.pathname.startsWith("/auth")
-        // Add public routes here
+        request.nextUrl.pathname.startsWith("/dashboard")
     ) {
-        // no user, potentially respond with 401 or redirect
-        // For now we allow access to everything until specific routes are protected?
-        // Story says "access the platform and my specific dashboard".
-        // Usually we protect dashboard routes.
-        if (request.nextUrl.pathname.startsWith("/dashboard")) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/login";
-            return NextResponse.redirect(url);
-        }
+        const url = request.nextUrl.clone();
+        url.pathname = "/login";
+        return NextResponse.redirect(url);
     }
 
-    // If user is logged in and tries to access login, redirect to dashboard?
-    if (user && request.nextUrl.pathname.startsWith("/login")) {
-        // We don't know the role yet easily without DB call, but we can redirect to a default or 
-        // let the page handle it.
-        // For now, let's just let it pass or redirect to a generic dashboard.
-        // The AC specifies specific dashboards.
-        // We'll handle this in the login action or page logic more robustly.
+    // 2. Role-Based Logic for Authenticated Users
+    if (user) {
+        // Fetch user profile to get role
+        // Note: This adds a DB call to every protected request. 
+        // In high-scale apps, this should be cached (e.g., in a session cookie or JWT custom claim).
+        // For MVP, direct DB call is acceptable.
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("user_id", user.id)
+            .single();
+
+        const role = profile?.role;
+
+        // 3. Handle Root/Login Redirection (If logged in, go to specific dashboard)
+        if (request.nextUrl.pathname === "/" || request.nextUrl.pathname === "/login") {
+            if (role === 'admin') return NextResponse.redirect(new URL("/dashboard/admin/users", request.url));
+            if (role === 'reviewer') return NextResponse.redirect(new URL("/dashboard/reviewer", request.url));
+            if (role === 'organizer') return NextResponse.redirect(new URL("/dashboard/organizer", request.url));
+            return NextResponse.redirect(new URL("/dashboard/project", request.url)); // Default to project leader
+        }
+
+        // 4. Enforce Role Protection on Specific Routes
+        const path = request.nextUrl.pathname;
+        let isAuthorized = true;
+
+        if (path.startsWith("/dashboard/admin") && role !== 'admin') isAuthorized = false;
+        if (path.startsWith("/dashboard/reviewer") && role !== 'reviewer') isAuthorized = false;
+        if (path.startsWith("/dashboard/organizer") && role !== 'organizer') isAuthorized = false;
+
+        if (!isAuthorized) {
+            // Redirect to their allowed home
+            if (role === 'admin') return NextResponse.redirect(new URL("/dashboard/admin/users", request.url));
+            if (role === 'reviewer') return NextResponse.redirect(new URL("/dashboard/reviewer", request.url));
+            if (role === 'organizer') return NextResponse.redirect(new URL("/dashboard/organizer", request.url));
+            return NextResponse.redirect(new URL("/dashboard/project", request.url));
+        }
     }
 
     return supabaseResponse;

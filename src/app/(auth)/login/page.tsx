@@ -31,7 +31,10 @@ export default function LoginPage() {
             if (result && !result.success) {
                 setServerError(result.error || "An unexpected error occurred");
             }
-        } catch (error) {
+        } catch (error: any) {
+            if (error.digest?.startsWith("NEXT_REDIRECT")) {
+                throw error;
+            }
             setServerError("An unexpected error occurred");
         } finally {
             setIsPending(false);

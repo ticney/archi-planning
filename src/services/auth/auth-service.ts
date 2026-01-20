@@ -32,9 +32,27 @@ export const AuthService = {
         return { success: true };
     },
 
-    async getUserRole(userId: string): Promise<"project_leader" | "reviewer" | "organizer"> {
-        // TODO: Replace with actual DB query when roles table exists
-        // For now, return a default role to satisfy the interface
-        return "project_leader";
+    async getUserRole(userId: string): Promise<import("@/types").UserRole | null> {
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("user_id", userId)
+            .single();
+
+        if (error || !data) {
+            console.error("Error fetching user role:", error);
+            return null;
+        }
+
+        return data.role;
+    },
+
+    async ensureUserRole(userId: string, requiredRoles: import("@/types").UserRole[]): Promise<boolean> {
+        const role = await this.getUserRole(userId);
+        if (!role || !requiredRoles.includes(role)) {
+            return false;
+        }
+        return true;
     },
 };

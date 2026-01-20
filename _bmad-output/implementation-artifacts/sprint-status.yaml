@@ -43,8 +43,8 @@ development_status:
   # Epic 1: Identity & Foundation
   epic-1: in-progress
   1-1-user-authentication-login: done
-  1-2-role-based-access-control-rbac-foundation: ready-for-dev
-  1-3-admin-user-role-management: backlog
+  1-2-role-based-access-control-rbac-foundation: done
+  1-3-admin-user-role-management: review
   epic-1-retrospective: optional
 
   # Epic 2: Governance Request Submission (The Leader)

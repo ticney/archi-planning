@@ -1,18 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AuthService } from "./auth-service";
 
-// Mock the createClient
+// Mock chainable supabase calls
+const mockSingle = vi.fn();
+const mockEq = vi.fn(() => ({ single: mockSingle }));
+const mockSelect = vi.fn(() => ({ eq: mockEq }));
+const mockFrom = vi.fn(() => ({ select: mockSelect }));
+
 const mockSignInWithPassword = vi.fn();
 const mockSignOut = vi.fn();
+
 const mockCreateClient = vi.fn(() => ({
     auth: {
         signInWithPassword: mockSignInWithPassword,
         signOut: mockSignOut,
     },
+    from: mockFrom,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
-    createClient: () => mockCreateClient(), // return promise or object depending on implementation
+    createClient: () => mockCreateClient(),
 }));
 
 describe("AuthService", () => {
@@ -57,5 +64,41 @@ describe("AuthService", () => {
 
         expect(result.success).toBe(false);
         expect(result.error).toBe("Invalid credentials");
+    });
+
+    describe("getUserRole", () => {
+        it("should return role when found", async () => {
+            mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
+
+            const role = await AuthService.getUserRole("user-123");
+            expect(role).toBe("admin");
+            expect(mockFrom).toHaveBeenCalledWith("profiles");
+            expect(mockSelect).toHaveBeenCalledWith("role");
+            expect(mockEq).toHaveBeenCalledWith("user_id", "user-123");
+        });
+
+        it("should return null on error", async () => {
+            mockSingle.mockResolvedValue({ data: null, error: { message: "Error" } });
+            const role = await AuthService.getUserRole("user-123");
+            expect(role).toBeNull();
+        });
+    });
+
+    describe("ensureUserRole", () => {
+        it("should return true if user has required role", async () => {
+            // Mock getUserRole internally or mock the DB call again? 
+            // Since getUserRole calls DB, we mock the DB call again
+            mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
+
+            const allowed = await AuthService.ensureUserRole("user-123", ["admin", "project_leader"]);
+            expect(allowed).toBe(true);
+        });
+
+        it("should return false if role does not match", async () => {
+            mockSingle.mockResolvedValue({ data: { role: "project_leader" }, error: null });
+
+            const allowed = await AuthService.ensureUserRole("user-123", ["admin"]);
+            expect(allowed).toBe(false);
+        });
     });
 });

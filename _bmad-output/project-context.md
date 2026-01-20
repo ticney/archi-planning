@@ -40,6 +40,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - **Supabase:**
   - Use `createClient` from `@supabase/ssr`.
   - NEVER expose Service Role Key on client side.
+  - **Tooling:** MUST use Supabase MCP server tools for all Supabase-related implementation tasks (migrations, edge functions, etc).
 
 ### Database & Naming Pattern Rules
 
