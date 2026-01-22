@@ -23,7 +23,14 @@ export const AuthService = {
             return { success: false, error: error.message };
         }
 
-        return { success: true, data };
+        // Fetch role using the same client/session context
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("user_id", data.user.id)
+            .single();
+
+        return { success: true, data: { ...data, role: profile?.role } };
     },
 
     async logout(): Promise<ActionResult<void>> {

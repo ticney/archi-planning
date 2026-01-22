@@ -13,18 +13,22 @@ export async function loginAction(data: LoginFormValues): Promise<ActionResult<v
     }
 
     // Implement RBAC redirection logic
-    const role = await AuthService.getUserRole(result.data.user.id || "");
+    const role = result.data.role;
 
     switch (role) {
         case "admin":
             redirect("/dashboard/admin/users");
+            break;
         case "reviewer":
             redirect("/dashboard/reviewer");
+            break;
         case "organizer":
             redirect("/dashboard/organizer");
+            break;
         case "project_leader":
         default:
             redirect("/dashboard/project");
+            break;
     }
 }
 
