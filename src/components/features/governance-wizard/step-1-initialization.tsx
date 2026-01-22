@@ -35,10 +35,9 @@ export function Step1Initialization() {
     });
 
     useEffect(() => {
-        if (state.success) {
-            window.location.href = '/dashboard';
-        }
-    }, [state.success]);
+        console.log('Wizard State Update:', state);
+        // Redirect is now handled by Server Action
+    }, [state]);
 
     return (
         <form action={formAction} className="space-y-6">

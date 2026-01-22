@@ -17,17 +17,10 @@ test.describe("Governance Wizard", () => {
 
         await page.getByLabel("Project Title").fill("E2E Test Project");
         await page.getByLabel("Project Code").fill("E2E-001");
-        // Textarea might label match or by placeholder
         await page.getByLabel("Description").fill("Automated test project");
 
         await page.getByRole("button", { name: "Next" }).click();
 
-        // Check for visible errors if any
-        if (await page.locator('.text-destructive').isVisible()) {
-            const error = await page.locator('.text-destructive').textContent();
-            console.log('Test Failure - Form Error:', error);
-        }
-
-        await expect(page).toHaveURL("/dashboard");
+        await expect(page).toHaveURL("/dashboard/project");
     });
 });

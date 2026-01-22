@@ -1,11 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { ActionResult } from '@/types';
 import { GovernanceService } from '@/services/governance/governance-service';
 import { createGovernanceRequestSchema, GovernanceRequest } from '@/types/schemas/governance-schema';
 
 const governanceService = new GovernanceService();
+
+// ... (other imports)
 
 export async function createRequestAction(
     prevState: ActionResult<GovernanceRequest> | null,
@@ -26,16 +29,19 @@ export async function createRequestAction(
         }
 
         const request = await governanceService.createRequest(parseResult.data);
+        console.log('Action Success:', request);
 
         // Revalidate paths where this data might appear
         revalidatePath('/dashboard');
-
-        return { success: true, data: request };
-
     } catch (error) {
+        console.error('Action Error:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
         };
     }
+
+    // Redirect must be outside try/catch if possible, or inside but rethrown. 
+    // Here we put it after revalidate.
+    redirect('/dashboard/project');
 }
