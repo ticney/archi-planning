@@ -6,10 +6,16 @@ const mockInsert = vi.fn();
 const mockSelect = vi.fn();
 const mockSingle = vi.fn();
 const mockFrom = vi.fn();
+const mockUpdate = vi.fn();
+const mockEq = vi.fn();
+const mockOrder = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
     createClient: vi.fn(async () => ({
         from: mockFrom,
+        auth: {
+            getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null })
+        }
     })),
 }));
 
@@ -21,9 +27,22 @@ describe('GovernanceService', () => {
         service = new GovernanceService();
 
         // Setup chain mock
-        mockFrom.mockReturnValue({ insert: mockInsert });
-        mockInsert.mockReturnValue({ select: mockSelect });
-        mockSelect.mockReturnValue({ single: mockSingle });
+        const chain = {
+            select: mockSelect,
+            insert: mockInsert,
+            update: mockUpdate,
+            eq: mockEq,
+            single: mockSingle,
+            order: mockOrder,
+            then: (resolve: any) => resolve({ data: [{ id: '123' }], error: null }) // Make chain awaitable for updates, returning dummy data
+        };
+
+        mockFrom.mockReturnValue(chain);
+        mockInsert.mockReturnValue(chain);
+        mockSelect.mockReturnValue(chain);
+        mockUpdate.mockReturnValue(chain);
+        mockEq.mockReturnValue(chain);
+        mockOrder.mockReturnValue(chain);
     });
 
     it('should create a governance request successfully', async () => {
@@ -42,7 +61,8 @@ describe('GovernanceService', () => {
             updated_at: new Date().toISOString()
         };
 
-        mockSingle.mockResolvedValue({ data: mockResponse, error: null });
+        // For createRequest: .insert().select().single()
+        mockSingle.mockResolvedValueOnce({ data: mockResponse, error: null });
 
         const result = await service.createRequest(input);
 
@@ -61,8 +81,58 @@ describe('GovernanceService', () => {
             project_code: 'FAIL-001'
         };
 
-        mockSingle.mockResolvedValue({ data: null, error: { message: 'DB Error' } });
+        mockSingle.mockResolvedValueOnce({ data: null, error: { message: 'DB Error' } });
 
         await expect(service.createRequest(input)).rejects.toThrow('Failed to create governance request: DB Error');
+    });
+
+    it('should submit request successfully with valid proofs', async () => {
+        const requestId = '123';
+        const mockRequest = {
+            id: requestId,
+            topic: 'standard',
+            status: 'draft'
+        };
+        const mockAttachments = [
+            { document_type: 'dat_sheet' },
+            { document_type: 'architecture_diagram' }
+        ];
+
+        // 1. getRequestById -> select().eq().single()
+        mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
+
+        // 2. getAttachments -> select().eq().order()
+        mockOrder.mockResolvedValueOnce({ data: mockAttachments, error: null });
+
+        await service.submitRequest(requestId);
+
+        expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'pending_review',
+        }));
+        expect(mockEq).toHaveBeenCalledWith('id', requestId);
+    });
+
+    it('should throw error if request not found', async () => {
+        mockSingle.mockResolvedValueOnce({ data: null, error: null }); // Not found
+
+        await expect(service.submitRequest('123')).rejects.toThrow('Request not found');
+    });
+
+    it('should throw error if mandatory proofs are missing (Standard)', async () => {
+        const requestId = '123';
+        const mockRequest = {
+            id: requestId,
+            topic: 'standard',
+            status: 'draft'
+        };
+        // Only DAT Sheet, missing Architecture Diagram
+        const mockAttachments = [
+            { document_type: 'dat_sheet' },
+        ];
+
+        mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
+        mockOrder.mockResolvedValueOnce({ data: mockAttachments, error: null });
+
+        await expect(service.submitRequest(requestId)).rejects.toThrow(/Missing mandatory documents/);
     });
 });

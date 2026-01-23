@@ -129,3 +129,14 @@ export async function getAttachmentsAction(requestId: string): Promise<ActionRes
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
+
+export async function submitRequestAction(requestId: string): Promise<ActionResult<void>> {
+    try {
+        await governanceService.submitRequest(requestId);
+        revalidatePath(`/governance/wizard/${requestId}`);
+    } catch (error) {
+        console.error('[submitRequestAction] Error:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+    redirect(`/dashboard/project/${requestId}`);
+}

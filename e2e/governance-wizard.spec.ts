@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { Buffer } from 'buffer';
 
 test.describe("Governance Wizard", () => {
-    const userEmail = "leader.e2e@example.com";
+    const uniqueId = Date.now().toString();
+    const userEmail = `leader.e2e.${uniqueId}@example.com`;
     const userPassword = "password123";
 
     test.beforeEach(async ({ page, request }) => {
@@ -45,7 +47,6 @@ test.describe("Governance Wizard", () => {
         await page.getByText("Standard Review").click();
         await expect(page.getByText("DAT Sheet").first()).toBeVisible();
         await expect(page.getByText("Architecture Diagram").first()).toBeVisible();
-        // await expect(page.getByText("Security Sign-off")).not.toBeVisible(); // Should not be visible for standard
 
         // Select Strategic (to test switch)
         await page.getByText("Strategic Review").click();
@@ -66,12 +67,13 @@ test.describe("Governance Wizard", () => {
         await expect(page.getByText("Missing 2 document(s)")).toBeVisible();
 
         // 1. Upload DAT Sheet
+        const datSheetContent = 'dummy content for dat sheet';
+        const datSheetBuffer = Buffer.from(datSheetContent);
         const fileInputs = page.locator('input[type="file"]');
         await expect(fileInputs).toHaveCount(2);
 
         // Upload DAT Sheet (First input)
-        // Find the input relative to the label "DAT Sheet"
-        const datSheetInput = page.locator('div').filter({ hasText: /^DAT Sheet$/ }).locator('input[type="file"]');
+        const datSheetInput = fileInputs.nth(0);
 
         await datSheetInput.setInputFiles({
             name: 'dat-sheet.pdf',
@@ -90,7 +92,7 @@ test.describe("Governance Wizard", () => {
         const archDiagramContent = 'dummy content for arch diagram';
         const archDiagramBuffer = Buffer.from(archDiagramContent);
 
-        const archDiagramInput = page.locator('div').filter({ hasText: /^Architecture Diagram$/ }).locator('input[type="file"]');
+        const archDiagramInput = fileInputs.nth(1);
 
         await archDiagramInput.setInputFiles({
             name: 'arch-diagram.png',
@@ -108,7 +110,36 @@ test.describe("Governance Wizard", () => {
         // Proceed
         await nextButton.click();
 
-        // Step 4 (Placeholder)
+        // Step 4: Review
         await expect(page).toHaveURL(/\/governance\/wizard\/.*\/step-4/);
+
+        await expect(page.getByText("Request Details")).toBeVisible();
+        await expect(page.getByText("Attached Documents")).toBeVisible();
+        await expect(page.getByText("dat-sheet.pdf")).toBeVisible();
+        await expect(page.getByText("arch-diagram.png")).toBeVisible();
+
+        // Submit
+        const submitButton = page.getByRole("button", { name: "Submit Request" });
+        await expect(submitButton).toBeEnabled();
+        await submitButton.click();
+
+        // Debugging: Check for failure toast
+        try {
+            await expect(page).toHaveURL(/\/dashboard\/project\/.*/, { timeout: 5000 });
+        } catch (e) {
+            console.log("Redirection failed. Checking for error toast...");
+            const toast = page.locator('[role="status"]'); // Default role for shadcn/ui toast usually? Or region?
+            // Actually shadcn toast title/desc usually text.
+            const errorTitle = page.getByText("Submission Failed");
+            if (await errorTitle.count() > 0) {
+                console.log("Found Failure Toast!");
+                const body = await page.locator("body").innerText();
+                console.log("Page Body Text (partial):", body.substring(0, 1000));
+            }
+            throw e;
+        }
+
+        // Verify Toast (Optional, but good practice)
+        // await expect(page.getByText("Request submitted successfully")).toBeVisible();
     });
 });

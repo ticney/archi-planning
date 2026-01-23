@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { CreateGovernanceRequestInput, GovernanceRequest, GovernanceTopic, RecordAttachmentInput, Attachment } from '@/types/schemas/governance-schema';
-import { TOPIC_RULES } from './governance-rules';
+import { TOPIC_RULES, getMissingProofs } from './governance-rules';
 
 export class GovernanceService {
     async createRequest(input: CreateGovernanceRequestInput): Promise<GovernanceRequest> {
@@ -159,5 +159,44 @@ export class GovernanceService {
         }
 
         return data;
+    }
+    async submitRequest(requestId: string): Promise<void> {
+        const supabase = await createClient();
+
+        // 1. Fetch the request to check topic
+        const request = await this.getRequestById(requestId);
+        if (!request) throw new Error("Request not found");
+
+        // 2. Fetch attachments
+        const attachments = await this.getAttachments(requestId);
+
+        // 3. Validate Proofs
+        const missing = getMissingProofs(request.topic as GovernanceTopic, attachments);
+        if (missing.length > 0) {
+            console.error(`[submitRequest] Missing proofs: ${missing.join(', ')} for topic ${request.topic}`);
+            console.error(`[submitRequest] Attachments found: ${JSON.stringify(attachments.map(a => a.document_type))}`);
+            throw new Error(`Missing mandatory documents: ${missing.join(', ')}`);
+        }
+
+        // 4. Update Status
+        const { data: updatedData, error } = await supabase
+            .from('governance_requests')
+            .update({
+                status: 'pending_review',
+                submitted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', requestId)
+            .select();
+
+        if (error) {
+            console.error('GovernanceService Error:', error);
+            throw new Error(`Failed to submit request: ${error.message}`);
+        }
+
+        if (!updatedData || updatedData.length === 0) {
+            console.error('GovernanceService Error: No rows updated. RLS check failed?');
+            throw new Error("Failed to submit request: Permission denied or request not found.");
+        }
     }
 }

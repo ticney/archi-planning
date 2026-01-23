@@ -3,7 +3,7 @@ import { Database } from '../supabase';
 
 export const governanceRequestStatusSchema = z.enum([
     'draft',
-    'pending',
+    'pending_review',
     'validated',
     'rejected',
 ]);

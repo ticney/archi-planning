@@ -48,11 +48,11 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Governance Request Submission (The Leader)
-  epic-2: in-progress
+  epic-2: done
   2-1-governance-request-wizard-initialization: done
   2-2-topic-selection-prerequisite-logic: done
   2-3-mandatory-document-upload-the-guardrail: done
-  2-4-request-submission: backlog
+  2-4-request-submission: done
   epic-2-retrospective: optional
 
   # Epic 3: Governance Review (The Reviewer)
