@@ -51,7 +51,7 @@ development_status:
   epic-2: in-progress
   2-1-governance-request-wizard-initialization: done
   2-2-topic-selection-prerequisite-logic: done
-  2-3-mandatory-document-upload-the-guardrail: backlog
+  2-3-mandatory-document-upload-the-guardrail: done
   2-4-request-submission: backlog
   epic-2-retrospective: optional
 

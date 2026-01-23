@@ -26,3 +26,32 @@ export const updateGovernanceRequestTopicSchema = z.object({
     topic: governanceTopicSchema,
 });
 export type UpdateGovernanceRequestTopicInput = z.infer<typeof updateGovernanceRequestTopicSchema>;
+
+export const attachmentTypeSchema = z.enum([
+    'dat_sheet',
+    'architecture_diagram',
+    'security_signoff',
+    'finops_approval',
+    'other',
+]);
+export type AttachmentType = z.infer<typeof attachmentTypeSchema>;
+
+export const attachmentSchema = z.object({
+    id: z.string().uuid(),
+    request_id: z.string().uuid(),
+    document_type: attachmentTypeSchema, // Using Zod version of enum
+    storage_path: z.string(),
+    filename: z.string(),
+    uploaded_at: z.string(),
+    uploaded_by: z.string().uuid(),
+});
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+// Input for recording an attachment (server action)
+export const recordAttachmentSchema = z.object({
+    request_id: z.string().uuid(),
+    document_type: attachmentTypeSchema,
+    storage_path: z.string(),
+    filename: z.string(),
+});
+export type RecordAttachmentInput = z.infer<typeof recordAttachmentSchema>;

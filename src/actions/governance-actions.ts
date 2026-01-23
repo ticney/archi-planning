@@ -45,7 +45,7 @@ export async function createRequestAction(
     }
 }
 
-import { updateGovernanceRequestTopicSchema } from '@/types/schemas/governance-schema';
+import { updateGovernanceRequestTopicSchema, Attachment, recordAttachmentSchema } from '@/types/schemas/governance-schema';
 
 export async function updateRequestTopicAction(
     requestId: string,
@@ -78,5 +78,54 @@ export async function updateRequestTopicAction(
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
         };
+    }
+}
+
+export async function recordAttachmentAction(
+    prevState: ActionResult<Attachment> | null,
+    formData: FormData
+): Promise<ActionResult<Attachment>> {
+    try {
+        const rawData = {
+            request_id: formData.get('request_id')?.toString(),
+            document_type: formData.get('document_type')?.toString(),
+            storage_path: formData.get('storage_path')?.toString(),
+            filename: formData.get('filename')?.toString(),
+        };
+
+        const parseResult = recordAttachmentSchema.safeParse(rawData);
+
+        if (!parseResult.success) {
+            return { success: false, error: parseResult.error.issues[0].message };
+        }
+
+        const attachment = await governanceService.recordAttachment(parseResult.data);
+        revalidatePath(`/governance/wizard/${parseResult.data.request_id}`);
+
+        return { success: true, data: attachment };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function deleteAttachmentAction(
+    attachmentId: string,
+    requestId: string
+): Promise<ActionResult<void>> {
+    try {
+        await governanceService.deleteAttachment(attachmentId);
+        revalidatePath(`/governance/wizard/${requestId}`);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+}
+
+export async function getAttachmentsAction(requestId: string): Promise<ActionResult<Attachment[]>> {
+    try {
+        const attachments = await governanceService.getAttachments(requestId);
+        return { success: true, data: attachments };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
