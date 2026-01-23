@@ -29,10 +29,13 @@ export async function createRequestAction(
         }
 
         const request = await governanceService.createRequest(parseResult.data);
-        console.log('Action Success:', request);
 
         // Revalidate paths where this data might appear
-        revalidatePath('/dashboard');
+
+        return {
+            success: true,
+            data: request
+        };
     } catch (error) {
         console.error('Action Error:', error);
         return {
@@ -40,8 +43,40 @@ export async function createRequestAction(
             error: error instanceof Error ? error.message : 'Unknown error',
         };
     }
+}
 
-    // Redirect must be outside try/catch if possible, or inside but rethrown. 
-    // Here we put it after revalidate.
-    redirect('/dashboard/project');
+import { updateGovernanceRequestTopicSchema } from '@/types/schemas/governance-schema';
+
+export async function updateRequestTopicAction(
+    requestId: string,
+    prevState: ActionResult<GovernanceRequest> | null,
+    formData: FormData
+): Promise<ActionResult<GovernanceRequest>> {
+    try {
+        const rawData = {
+            topic: formData.get('topic')?.toString(),
+        };
+
+        const parseResult = updateGovernanceRequestTopicSchema.safeParse(rawData);
+
+        if (!parseResult.success) {
+            const errorMessage = parseResult.error.issues.map((e) => e.message).join(', ');
+            return { success: false, error: errorMessage };
+        }
+
+        const request = await governanceService.updateTopic(requestId, parseResult.data.topic);
+
+        revalidatePath(`/governance/wizard/${requestId}`);
+
+        return {
+            success: true,
+            data: request
+        };
+    } catch (error) {
+        console.error('Action Error:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+        };
+    }
 }

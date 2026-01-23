@@ -1,6 +1,6 @@
 # Story 2.1: Governance Request Wizard - Initialization
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

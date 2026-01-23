@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createGovernanceRequestSchema, CreateGovernanceRequestInput } from '@/types/schemas/governance-schema';
@@ -18,12 +19,14 @@ const initialState: ActionResult<GovernanceRequest> = {
 };
 
 export function Step1Initialization() {
+    // HMR Trigger
     const { formData, setFormData } = useWizardStore();
     const [state, formAction, isPending] = useActionState(createRequestAction, initialState);
 
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors },
     } = useForm<CreateGovernanceRequestInput>({
         resolver: zodResolver(createGovernanceRequestSchema),
@@ -35,9 +38,19 @@ export function Step1Initialization() {
     });
 
     useEffect(() => {
-        console.log('Wizard State Update:', state);
-        // Redirect is now handled by Server Action
-    }, [state]);
+        const subscription = watch((value) => {
+            setFormData(value);
+        });
+        return () => subscription.unsubscribe();
+    }, [watch, setFormData]);
+
+    const router = useRouter();
+
+    useEffect(() => {
+        if (state.success) {
+            window.location.href = `/governance/wizard/${state.data.id}/step-2`;
+        }
+    }, [state, router]);
 
     return (
         <form action={formAction} className="space-y-6">

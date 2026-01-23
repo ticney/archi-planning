@@ -18,3 +18,11 @@ export type CreateGovernanceRequestInput = z.infer<typeof createGovernanceReques
 export type GovernanceRequestStatus = z.infer<typeof governanceRequestStatusSchema>;
 
 export type GovernanceRequest = Database['public']['Tables']['governance_requests']['Row'];
+
+export const governanceTopicSchema = z.enum(['standard', 'strategic']);
+export type GovernanceTopic = z.infer<typeof governanceTopicSchema>;
+
+export const updateGovernanceRequestTopicSchema = z.object({
+    topic: governanceTopicSchema,
+});
+export type UpdateGovernanceRequestTopicInput = z.infer<typeof updateGovernanceRequestTopicSchema>;
