@@ -12,7 +12,13 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { MaturityGauge } from "@/components/features/governance/maturity-gauge";
-import { ReviewerDashboardData } from "@/actions/reviewer-actions";
+import { ReviewerDashboardData, validateGovernanceRequest } from "@/actions/reviewer-actions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Check, Loader2 } from "lucide-react";
+import { useTransition } from "react";
+import { toast } from "sonner";
+import { GovernanceRequest } from "@/types/schemas/governance-schema";
 
 function timeAgo(dateString: string | null | undefined): string {
     if (!dateString) return 'N/A';
@@ -40,6 +46,7 @@ interface ReviewerDashboardProps {
 export function ReviewerDashboard({ initialData }: ReviewerDashboardProps) {
     const router = useRouter();
     const supabase = createClient();
+    const { pendingRequests, validatedRequests } = initialData;
 
     useEffect(() => {
         const channel = supabase
@@ -49,11 +56,10 @@ export function ReviewerDashboard({ initialData }: ReviewerDashboardProps) {
                 {
                     event: '*',
                     schema: 'public',
-                    table: 'governance_requests',
-                    filter: 'status=eq.pending_review' // Listen for changes to pending reviews
+                    table: 'governance_requests'
                 },
                 () => {
-                    // Refresh the server component when data changes
+                    // Refresh for any status change
                     router.refresh();
                 }
             )
@@ -64,55 +70,122 @@ export function ReviewerDashboard({ initialData }: ReviewerDashboardProps) {
         };
     }, [supabase, router]);
 
-    const { requests } = initialData;
-
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">Pending Reviews</h2>
-                <span className="inline-flex items-center justify-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                    {requests.length}
-                </span>
-            </div>
+            <Tabs defaultValue="pending" className="w-full">
+                <TabsList>
+                    <TabsTrigger value="pending">
+                        Pending Reviews
+                        <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                            {pendingRequests.length}
+                        </span>
+                    </TabsTrigger>
+                    <TabsTrigger value="validated">
+                        Validated
+                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                            {validatedRequests.length}
+                        </span>
+                    </TabsTrigger>
+                </TabsList>
 
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Project Name</TableHead>
-                            <TableHead>Topic</TableHead>
-                            <TableHead>Maturity Score</TableHead>
-                            <TableHead>Submission Date</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {requests.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
-                                    No pending requests found.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            requests.map((request) => (
-                                <TableRow key={request.id}>
-                                    <TableCell className="font-medium">
-                                        {request.projectName || request.project_code}
-                                    </TableCell>
-                                    <TableCell className="capitalize">
-                                        {request.topic || 'N/A'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <MaturityGauge score={request.maturityScore} />
-                                    </TableCell>
-                                    <TableCell>
-                                        {timeAgo(request.submitted_at)}
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                <TabsContent value="pending">
+                    <RequestsTable requests={pendingRequests} type="pending" />
+                </TabsContent>
+
+                <TabsContent value="validated">
+                    <RequestsTable requests={validatedRequests} type="validated" />
+                </TabsContent>
+            </Tabs>
         </div>
+    );
+}
+
+interface ExtendedRequest extends GovernanceRequest {
+    maturityScore: number;
+    projectName: string;
+}
+
+function RequestsTable({ requests, type }: { requests: ExtendedRequest[], type: 'pending' | 'validated' }) {
+    if (requests.length === 0) {
+        return (
+            <div className="rounded-md border p-8 text-center text-muted-foreground">
+                No {type} requests found.
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Project Name</TableHead>
+                        <TableHead>Topic</TableHead>
+                        <TableHead>Maturity Score</TableHead>
+                        <TableHead>Submission Date</TableHead>
+                        {type === 'pending' && <TableHead className="text-right">Actions</TableHead>}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {requests.map((request) => (
+                        <TableRow key={request.id}>
+                            <TableCell className="font-medium">
+                                {request.projectName || request.project_code}
+                            </TableCell>
+                            <TableCell className="capitalize">
+                                {request.topic || 'N/A'}
+                            </TableCell>
+                            <TableCell>
+                                <MaturityGauge score={request.maturityScore} />
+                            </TableCell>
+                            <TableCell>
+                                {timeAgo(request.submitted_at)}
+                            </TableCell>
+                            {type === 'pending' && (
+                                <TableCell className="text-right">
+                                    <ValidateButton requestId={request.id} />
+                                </TableCell>
+                            )}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+function ValidateButton({ requestId }: { requestId: string }) {
+    const [isPending, startTransition] = useTransition();
+
+    const handleValidate = () => {
+        startTransition(async () => {
+            try {
+                const result = await validateGovernanceRequest(requestId);
+                if (result.success) {
+                    toast.success("Request validated successfully");
+                } else {
+                    toast.error(result.error || "Failed to validate");
+                }
+            } catch (e) {
+                toast.error("An unexpected error occurred");
+            }
+        });
+    };
+
+    return (
+        <Button
+            size="sm"
+            variant="outline"
+            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+            onClick={handleValidate}
+            disabled={isPending}
+        >
+            {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <Check className="mr-2 h-4 w-4" />
+            )}
+            Validate
+        </Button>
     );
 }

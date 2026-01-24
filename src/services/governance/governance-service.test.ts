@@ -34,6 +34,7 @@ describe('GovernanceService', () => {
             eq: mockEq,
             single: mockSingle,
             order: mockOrder,
+            limit: vi.fn().mockImplementation(function (this: any) { return this; }), // Return chain for .limit()
             then: (resolve: any) => resolve({ data: [{ id: '123' }], error: null }) // Make chain awaitable for updates, returning dummy data
         };
 
@@ -148,12 +149,13 @@ describe('GovernanceService', () => {
                 select: mockSelect,
                 eq: mockEq,
                 order: mockOrder,
+                limit: vi.fn().mockReturnThis(),
                 then: (resolve: any) => resolve({ data: mockData, error: null })
             };
             mockFrom.mockReturnValue(chain);
             mockSelect.mockReturnValue(chain);
             mockEq.mockReturnValue(chain);
-            mockOrder.mockResolvedValue({ data: mockData, error: null });
+            mockOrder.mockReturnValue(chain);
 
             const result = await service.getPendingRequests();
 
@@ -189,6 +191,71 @@ describe('GovernanceService', () => {
             mockOrder.mockResolvedValue({ data: [], error: null });
             const score = await service.calculateMaturityScore(request);
             expect(score).toBe(0);
+        });
+    });
+    describe('validateRequest', () => {
+        it('should validate a pending request successfully', async () => {
+            const requestId = '123';
+            const reviewerId = 'reviewer-1';
+            const mockRequest = {
+                id: requestId,
+                status: 'pending_review'
+            };
+
+            mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null }); // getRequestById
+
+            await service.validateRequest(requestId, reviewerId);
+
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                status: 'validated',
+                validated_by: reviewerId,
+            }));
+            expect(mockEq).toHaveBeenCalledWith('id', requestId);
+        });
+
+        it('should throw error if request is not pending_review', async () => {
+            const requestId = '123';
+            const reviewerId = 'reviewer-1';
+            const mockRequest = {
+                id: requestId,
+                status: 'draft' // Not pending
+            };
+
+            mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
+
+            await expect(service.validateRequest(requestId, reviewerId))
+                .rejects.toThrow('Request is not pending review');
+        });
+
+        it('should throw error if request not found', async () => {
+            mockSingle.mockResolvedValueOnce({ data: null, error: null });
+            await expect(service.validateRequest('999', 'reviewer-1'))
+                .rejects.toThrow('Request not found');
+        });
+    });
+
+    describe('getValidatedRequests', () => {
+        it('should fetch all requests with status validated', async () => {
+            const mockData = [
+                { id: '1', status: 'validated' }
+            ];
+
+            const chain = {
+                select: mockSelect,
+                eq: mockEq,
+                order: mockOrder,
+                limit: vi.fn().mockReturnThis(),
+                then: (resolve: any) => resolve({ data: mockData, error: null })
+            };
+            mockFrom.mockReturnValue(chain);
+            mockSelect.mockReturnValue(chain);
+            mockEq.mockReturnValue(chain);
+            mockOrder.mockReturnValue(chain);
+
+            const result = await service.getValidatedRequests();
+
+            expect(mockEq).toHaveBeenCalledWith('status', 'validated');
+            expect(result).toHaveLength(1);
         });
     });
 });

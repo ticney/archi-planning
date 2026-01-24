@@ -51,6 +51,42 @@ test.describe("Reviewer Dashboard", () => {
         await expect(page).toHaveURL(/.*\/dashboard\/project/);
     });
 
-    // Optional: add a pending request and verify it shows up.
-    // For now, checking access is the critical path for this story.
+    test("Reviewer can validate a pending request", async ({ page }) => {
+        // Login as Reviewer
+        await page.goto("/login");
+        await page.getByLabel("Email address").fill(REVIEWER_EMAIL);
+        await page.getByLabel("Password").fill(PASSWORD);
+        await page.getByRole("button", { name: "Sign in" }).click();
+
+        await page.waitForURL(/\/dashboard\/reviewer/);
+
+        // Ensure we are on Pending tab
+        await expect(page.getByRole("tab", { name: "Pending Reviews" })).toHaveAttribute("data-state", "active");
+
+        // If there are pending requests, try to validate one
+        // Note: This assumes seed data exists. If "No pending requests found" is shown, this test might skip logic.
+        // Ideally we should seed data specifically for this test.
+        // For now, checks if table exists.
+        // Ensure we find at least one pending request to validate
+        // In a real scenario, we should ideally seed this.
+        await expect(page.locator("table tbody tr")).not.toHaveCount(0, { timeout: 10000 });
+
+        const pendingRows = page.locator("table tbody tr");
+        const firstRowTitle = await pendingRows.first().locator("td").first().innerText();
+        console.log(`[E2E] Validating request: ${firstRowTitle}`);
+
+        // Click Validate button
+        await pendingRows.first().getByRole("button", { name: "Validate" }).click();
+
+        // Should see success toast
+        await expect(page.getByText("Request validated successfully")).toBeVisible();
+
+        // Switch to Validated tab
+        // Note: We might need to wait for the list to refresh or use specific locator if optimistic update is not instant
+        await page.getByRole("tab", { name: "Validated" }).click();
+
+        // Verify project appears in validated list
+        // We use a looser text match or wait for it to appear
+        await expect(page.locator('[role="tabpanel"][data-state="active"]')).toContainText(firstRowTitle);
+    });
 });

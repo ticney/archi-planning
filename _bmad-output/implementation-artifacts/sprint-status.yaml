@@ -58,8 +58,8 @@ development_status:
   # Epic 3: Governance Review (The Reviewer)
   epic-3: in-progress
   3-1-reviewer-dashboard-the-cockpit: done
-  3-2-governance-validation-the-green-button: backlog
-  3-3-governance-rejection-the-guardrail: backlog
+  3-2-governance-validation-the-green-button: done
+  3-3-governance-rejection-the-guardrail: in-progress
   epic-3-retrospective: optional
 
   # Epic 4: Intelligent Scheduling (The Organizer)

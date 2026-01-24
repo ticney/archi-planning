@@ -237,7 +237,8 @@ export class GovernanceService {
             .from('governance_requests')
             .select('*')
             .eq('status', 'pending_review')
-            .order('submitted_at', { ascending: true }); // Oldest first
+            .order('submitted_at', { ascending: true }) // Oldest first
+            .limit(50);
 
         if (error) {
             console.error('GovernanceService Error:', error);
@@ -265,5 +266,53 @@ export class GovernanceService {
         const uploadedCount = requiredCount - missing.length;
         // Simple percentage calculation
         return Math.round((uploadedCount / requiredCount) * 100);
+    }
+    async validateRequest(requestId: string, reviewerId: string): Promise<void> {
+        const supabase = await createClient();
+
+        // 1. Fetch current status
+        const request = await this.getRequestById(requestId);
+        if (!request) throw new Error("Request not found");
+
+        if ((request.status as unknown as string) !== 'pending_review') {
+            throw new Error("Request is not pending review");
+        }
+
+        // 2. Update status
+        const { error } = await supabase
+            .from('governance_requests')
+            .update({
+                status: 'validated',
+                validated_by: reviewerId,
+                validated_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', requestId);
+
+        if (error) {
+            console.error('GovernanceService Error:', error);
+            throw new Error(`Failed to validate request: ${error.message}`);
+        }
+
+        // TODO: Send notification stub
+        console.log(`[Notification] Request ${requestId} validated by ${reviewerId}`);
+    }
+
+    async getValidatedRequests(): Promise<GovernanceRequest[]> {
+        const supabase = await createClient();
+
+        const { data, error } = await supabase
+            .from('governance_requests')
+            .select('*')
+            .eq('status', 'validated')
+            .order('validated_at', { ascending: false })
+            .limit(50);
+
+        if (error) {
+            console.error('GovernanceService Error:', error);
+            throw new Error(`Failed to fetch validated requests: ${error.message}`);
+        }
+
+        return data || [];
     }
 }
