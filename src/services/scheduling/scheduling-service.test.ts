@@ -167,4 +167,35 @@ describe('Scheduling Service', () => {
             expect(result.success).toBe(true);
         });
     });
+
+
+    describe('getAllScheduledRequests', () => {
+        it('returns scheduled requests with booking_end_at calculation', async () => {
+            const startRange = new Date('2026-01-20');
+            const endRange = new Date('2026-01-25');
+
+            // Mock response
+            const mockData = [
+                {
+                    id: '1',
+                    booking_start_at: '2026-01-23T14:00:00Z',
+                    topic: 'standard', // 30 mins
+                    title: 'Project A',
+                    status: 'tentative'
+                }
+            ];
+
+            // Chain: select -> not -> gte -> lte
+            mockSupabase.lte.mockResolvedValue({ data: mockData, error: null });
+
+            const { getAllScheduledRequests } = await import('./scheduling-service');
+            const results = await getAllScheduledRequests(startRange, endRange);
+
+            expect(results.length).toBe(1);
+            expect(results[0].title).toBe('Project A');
+            // 14:00 + 30 mins = 14:30
+            expect(results[0].booking_end_at).toEqual(new Date('2026-01-23T14:30:00Z'));
+        });
+    });
+
 });

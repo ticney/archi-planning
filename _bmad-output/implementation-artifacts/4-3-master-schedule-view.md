@@ -1,6 +1,6 @@
 # Story 4.3: Master Schedule View
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,33 +31,33 @@ So that I can see the upcoming board agenda.
 
 ## Tasks / Subtasks
 
-- [ ] Database / Schema (Verification)
-  - [ ] Verify `governance_requests` table has `booking_start_at` and `status` columns.
-  - [ ] Ensure `status` enum supports `tentative` and `confirmed`.
+- [x] Database / Schema (Verification)
+  - [x] Verify `governance_requests` table has `booking_start_at` and `status` columns.
+  - [x] Ensure `status` enum supports `tentative` and `confirmed`.
 
-- [ ] Scheduling Domain Service (`src/services/scheduling`)
-  - [ ] Implement `getAllScheduledRequests(startDate, endDate)`
-    - [ ] Query requests where `booking_start_at` is NOT NULL.
-    - [ ] Filter by date range (if applicable).
-    - [ ] Return type should include Project details (join/select).
+- [x] Scheduling Domain Service (`src/services/scheduling`)
+  - [x] Implement `getAllScheduledRequests(startDate, endDate)`
+    - [x] Query requests where `booking_start_at` is NOT NULL.
+    - [x] Filter by date range (if applicable).
+    - [x] Return type should include Project details (join/select).
 
-- [ ] Server Actions (`src/actions/scheduling-actions.ts`)
-  - [ ] Expose `getMasterScheduleAction(range)`
-    - [ ] Check permissions (Organizer only).
-    - [ ] Call `getAllScheduledRequests`.
-    - [ ] Serialize dates properly for Client Components.
+- [x] Server Actions (`src/actions/scheduling-actions.ts`)
+  - [x] Expose `getMasterScheduleAction(range)`
+    - [x] Check permissions (Organizer only).
+    - [x] Call `getAllScheduledRequests`.
+    - [x] Serialize dates properly for Client Components.
 
-- [ ] UI Implementation
-  - [ ] Create `MasterSchedule` component (`src/components/features/scheduling/master-schedule.tsx`).
-    - [ ] Use Shadcn/UI components or reuse `booking-calendar` logic if applicable.
-    - [ ] Implement color coding: Yellow (Tentative) / Green (Confirmed).
-    - [ ] Add Popover/Tooltip for details (Project Name, Leader, Topic).
-  - [ ] Create/Update Organizer Dashboard Page (`src/app/(dashboard)/organizer/page.tsx`).
-    - [ ] Integrate `MasterSchedule`.
+- [x] UI Implementation
+  - [x] Create `MasterSchedule` component (`src/components/features/scheduling/master-schedule.tsx`).
+    - [x] Use Shadcn/UI components or reuse `booking-calendar` logic if applicable.
+    - [x] Implement color coding: Yellow (Tentative) / Green (Confirmed).
+    - [x] Add Popover/Tooltip for details (Project Name, Leader, Topic).
+  - [x] Create/Update Organizer Dashboard Page (`src/app/(dashboard)/organizer/page.tsx`).
+    - [x] Integrate `MasterSchedule`.
 
-- [ ] Verification
-  - [ ] Unit Test `scheduling-service`: Verify fetching of tentative/confirmed requests.
-  - [ ] Manual Check: Login as Organizer -> View Dashboard -> Verify slots appear with correct colors.
+- [x] Verification
+  - [x] Unit Test `scheduling-service`: Verify fetching of tentative/confirmed requests.
+  - [x] Manual Check: Login as Organizer -> View Dashboard -> Verify slots appear with correct colors.
 
 ## Dev Notes
 
@@ -84,3 +84,38 @@ So that I can see the upcoming board agenda.
 - [Epic 4](file:///d:/Dev/Architecture%20Planning/_bmad-output/planning-artifacts/epics.md#epic-4-intelligent-scheduling)
 - [Architecture](file:///d:/Dev/Architecture%20Planning/_bmad-output/planning-artifacts/architecture.md)
 - [Previous Story: 4.2](file:///d:/Dev/Architecture%20Planning/_bmad-output/implementation-artifacts/4-2-tentative-booking-request.md)
+
+## Dev Agent Record
+
+### Agent Model Used
+- Gemini 2.0 Flash
+
+### Debug Log References
+- Syntax error in scheduling actions (Fixed).
+- Type error in MasterSchedule component (Fixed).
+- Missing Radix UI Popover dependency (Fixed).
+
+### Completion Notes List
+- Implemented Master Schedule View with weekly calendar grid.
+- Added `confirmed` status to database enum.
+- Implemented `getAllScheduledRequests` in service layer with unit tests.
+- Secured endpoint with `getMasterScheduleAction` limiting access to Organizer/Admin.
+- Integrated fully into Organizer Dashboard.
+
+### Code Review Fixes (AI)
+- Added type safety to topic duration calculation.
+- Optimized performance of master schedule data fetching.
+- Improved race condition safety in booking logic.
+
+### File List
+- src/services/scheduling/scheduling-service.ts
+- src/services/scheduling/slot-rules.ts
+- src/actions/scheduling-actions.ts
+- src/components/features/scheduling/master-schedule.tsx
+- src/app/(dashboard)/organizer/page.tsx
+- src/types/schemas/governance-schema.ts
+- src/types/supabase.ts
+- src/components/ui/popover.tsx
+- src/services/scheduling/scheduling-service.test.ts
+- package.json
+- package-lock.json

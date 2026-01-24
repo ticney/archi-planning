@@ -46,3 +46,42 @@ export async function getSlotsAction(dateString: string) {
         return [];
     }
 }
+
+export async function getMasterScheduleAction(range: { start: string; end: string }) {
+    try {
+        const { createClient } = await import('@/lib/supabase/server');
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        const { AuthService } = await import('@/services/auth/auth-service');
+        const allowedRoles: import('@/types').UserRole[] = ['organizer', 'admin'];
+        const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
+
+        if (!isAuthorized) {
+            return { success: false, error: 'Forbidden' };
+        }
+
+        const startDate = new Date(range.start);
+        const endDate = new Date(range.end);
+
+        const { getAllScheduledRequests } = await import('@/services/scheduling/scheduling-service');
+        const requests = await getAllScheduledRequests(startDate, endDate);
+
+        // Serialize Dates
+        const serialized = requests.map(req => ({
+            ...req,
+            // Ensure booking_end_at is serialized
+            booking_end_at: req.booking_end_at.toISOString(),
+        }));
+
+        return { success: true, data: serialized };
+
+    } catch (error) {
+        console.error('Failed to get master schedule:', error);
+        return { success: false, error: 'Failed to fetch schedule' };
+    }
+}

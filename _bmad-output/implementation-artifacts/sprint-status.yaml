@@ -66,7 +66,7 @@ development_status:
   epic-4: in-progress
   4-1-elastic-slot-duration-logic-backend-rule: done
   4-2-tentative-booking-request: done
-  4-3-master-schedule-view: ready-for-dev
+  4-3-master-schedule-view: done
   4-4-schedule-confirmation-export: backlog
   epic-4-retrospective: optional
 

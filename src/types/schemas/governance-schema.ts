@@ -7,6 +7,7 @@ export const governanceRequestStatusSchema = z.enum([
     'validated',
     'tentative',
     'rejected',
+    'confirmed',
 ]);
 
 export const createGovernanceRequestSchema = z.object({

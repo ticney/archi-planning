@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { GovernanceRequest, governanceRequestStatusSchema } from '@/types/schemas/governance-schema';
+import { GovernanceRequest, governanceRequestStatusSchema, GovernanceTopic } from '@/types/schemas/governance-schema';
 import { calculateSlotDuration } from './slot-rules';
 import { addMinutes, startOfDay, endOfDay, setHours, setMinutes, isBefore, isAfter, isWeekend } from 'date-fns';
 
@@ -63,8 +63,8 @@ export async function getAvailableSlots(date: Date): Promise<BookingSlot[]> {
             if (!booking.booking_start_at) return false;
             const bookingStart = new Date(booking.booking_start_at);
             // Calculate booking end based on its topic
-            const duration = calculateSlotDuration(booking.topic as any);
-            // casting topic as any because generic select might return string and TS doesn't know it matches enum
+            const duration = calculateSlotDuration(booking.topic as GovernanceTopic);
+            // casting topic as GovernanceTopic because generic select might return string and TS doesn't know it matches enum
             const bookingEnd = addMinutes(bookingStart, duration);
 
             // Check overlap
@@ -128,7 +128,7 @@ export async function bookSlot(requestId: string, startAt: Date): Promise<{ succ
     // We only have booking_start_at. We assume max duration is 60 mins.
     // So we check bookings starting between (AttemptStart - 60m) and (AttemptEnd)
 
-    const searchWindowStart = addMinutes(startAt, -60).toISOString(); // Max booking size
+    const searchWindowStart = addMinutes(startAt, -240).toISOString(); // Max booking size safety margin (4 hours)
     const searchWindowEnd = endAt.toISOString();
 
     const { data: conflicts, error: conflictError } = await supabase
@@ -146,7 +146,7 @@ export async function bookSlot(requestId: string, startAt: Date): Promise<{ succ
     const hasConflict = conflicts?.some((booking) => {
         if (!booking.booking_start_at) return false;
         const existStart = new Date(booking.booking_start_at);
-        const existDuration = calculateSlotDuration(booking.topic as any);
+        const existDuration = calculateSlotDuration(booking.topic as GovernanceTopic);
         const existEnd = addMinutes(existStart, existDuration);
 
         return isBefore(startAt, existEnd) && isAfter(endAt, existStart);
@@ -170,4 +170,35 @@ export async function bookSlot(requestId: string, startAt: Date): Promise<{ succ
     }
 
     return { success: true };
+}
+
+/**
+ * Returns all scheduled requests within a date range.
+ * Includes derived booking_end_at based on topic duration.
+ */
+export async function getAllScheduledRequests(startDate: Date, endDate: Date): Promise<(GovernanceRequest & { booking_end_at: Date })[]> {
+    const supabase = await createClient();
+
+    const { data: requests, error } = await supabase
+        .from('governance_requests')
+        .select('*')
+        .not('booking_start_at', 'is', null)
+        .gte('booking_start_at', startDate.toISOString())
+        .lte('booking_start_at', endDate.toISOString());
+
+    if (error) {
+        console.error('Error fetching schedule:', error);
+        throw new Error('Failed to fetch schedule');
+    }
+
+    if (!requests) return [];
+
+    return requests.map(req => {
+        const start = new Date(req.booking_start_at!);
+        const duration = calculateSlotDuration(req.topic as GovernanceTopic);
+        return {
+            ...req,
+            booking_end_at: addMinutes(start, duration)
+        };
+    });
 }
