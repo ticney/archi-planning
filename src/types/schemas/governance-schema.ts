@@ -55,3 +55,9 @@ export const recordAttachmentSchema = z.object({
     filename: z.string(),
 });
 export type RecordAttachmentInput = z.infer<typeof recordAttachmentSchema>;
+
+export const rejectGovernanceRequestSchema = z.object({
+    requestId: z.string().uuid(),
+    reason: z.string().min(10, "Reason must be at least 10 characters"),
+});
+export type RejectGovernanceRequestInput = z.infer<typeof rejectGovernanceRequestSchema>;

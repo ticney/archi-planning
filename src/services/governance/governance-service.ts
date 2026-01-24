@@ -315,4 +315,35 @@ export class GovernanceService {
 
         return data || [];
     }
+
+    async rejectRequest(requestId: string, reason: string, reviewerId: string): Promise<void> {
+        const supabase = await createClient();
+
+        // 1. Fetch current status
+        const request = await this.getRequestById(requestId);
+        if (!request) throw new Error("Request not found");
+
+        if ((request.status as unknown as string) !== 'pending_review') {
+            throw new Error("Request is not pending review");
+        }
+
+        // 2. Update status
+        const { error } = await supabase
+            .from('governance_requests')
+            .update({
+                status: 'draft',
+                rejection_reason: reason,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', requestId);
+
+        if (error) {
+            console.error('GovernanceService Error:', error);
+            throw new Error(`Failed to reject request: ${error.message}`);
+        }
+
+        // TODO: Send notification stub
+        console.log(`[Notification] Request ${requestId} rejected by ${reviewerId}. Reason: ${reason}`);
+    }
+
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { MaturityGauge } from "@/components/features/governance/maturity-gauge";
 import { ReviewerDashboardData, validateGovernanceRequest } from "@/actions/reviewer-actions";
+import { RejectionModal } from "./rejection-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
@@ -143,7 +144,10 @@ function RequestsTable({ requests, type }: { requests: ExtendedRequest[], type: 
                             </TableCell>
                             {type === 'pending' && (
                                 <TableCell className="text-right">
-                                    <ValidateButton requestId={request.id} />
+                                    <div className="flex justify-end gap-2">
+                                        <RejectionModal requestId={request.id} />
+                                        <ValidateButton requestId={request.id} />
+                                    </div>
                                 </TableCell>
                             )}
                         </TableRow>

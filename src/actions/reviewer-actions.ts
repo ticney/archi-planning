@@ -2,7 +2,7 @@
 
 import { ActionResult } from '@/types';
 import { GovernanceService } from '@/services/governance/governance-service';
-import { GovernanceRequest } from '@/types/schemas/governance-schema';
+import { GovernanceRequest, rejectGovernanceRequestSchema } from '@/types/schemas/governance-schema';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -79,6 +79,45 @@ export async function validateGovernanceRequest(requestId: string): Promise<Acti
         return { success: true };
     } catch (error) {
         console.error('validateGovernanceRequest Error:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
+export async function rejectGovernanceRequest(requestId: string, reason: string): Promise<ActionResult<void>> {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+
+        // Verify Reviewer Role
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .single();
+
+        if (!profile || profile.role !== 'reviewer') {
+            return { success: false, error: 'Forbidden: Reviewer role required' };
+        }
+
+        const validationResult = rejectGovernanceRequestSchema.safeParse({ requestId, reason });
+        if (!validationResult.success) {
+            return { success: false, error: validationResult.error.issues[0].message };
+        }
+
+        await governanceService.rejectRequest(requestId, reason, user.id);
+
+        revalidatePath('/dashboard/reviewer');
+
+        return { success: true };
+    } catch (error) {
+        console.error('rejectGovernanceRequest Error:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error'

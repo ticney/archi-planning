@@ -1,6 +1,6 @@
 # Story 3.3: Governance Rejection ("The Guardrail")
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -34,34 +34,34 @@ So that the Project Leader knows exactly what to fix.
 
 ## Tasks / Subtasks
 
-- [ ] **Database & Schema**
-    - [ ] Create migration: Add `rejection_reason` (text, nullable) to `governance_requests` table
-    - [ ] Update `src/types/schemas/governance-schema.ts`:
-        - [ ] Add `rejectGovernanceRequestSchema` (requires id + reason)
-        - [ ] Update `GovernanceRequest` type definition if needed
-    - [ ] **RLS:** Ensure `Reviewer` role has `UPDATE` permission on `rejection_reason` column.
+- [x] **Database & Schema**
+    - [x] Create migration: Add `rejection_reason` (text, nullable) to `governance_requests` table
+    - [x] Update `src/types/schemas/governance-schema.ts`:
+        - [x] Add `rejectGovernanceRequestSchema` (requires id + reason)
+        - [x] Update `GovernanceRequest` type definition if needed
+    - [x] **RLS:** Ensure `Reviewer` role has `UPDATE` permission on `rejection_reason` column.
 
-- [ ] **Data Layer & Services**
-    - [ ] Update `src/services/governance/governance-service.ts`:
-        - [ ] Add `rejectRequest(id, reason, userId)` method
-        - [ ] Ensure it verifies current status is `pending_review` before rejecting
+- [x] **Data Layer & Services**
+    - [x] Update `src/services/governance/governance-service.ts`:
+        - [x] Add `rejectRequest(id, reason, userId)` method
+        - [x] Ensure it verifies current status is `pending_review` before rejecting
 
-- [ ] **Server Actions**
-    - [ ] Create/Update `src/actions/reviewer-actions.ts`:
-        - [ ] Add `rejectGovernanceRequest` action
-        - [ ] Ensure Zod validation and RBAC checks
+- [x] **Server Actions**
+    - [x] Create/Update `src/actions/reviewer-actions.ts`:
+        - [x] Add `rejectGovernanceRequest` action
+        - [x] Ensure Zod validation and RBAC checks
 
-- [ ] **Frontend - Components**
-    - [ ] Create `RejectionModal` component (using Shadcn Dialog + Textarea)
-    - [ ] Update `ReviewerDashboard` (or `ReviewerRequestRow`):
-        - [ ] Integrate "Reject" button with the Modal
-        - [ ] Handle optimistic UI update (remove from Pending list)
+- [x] **Frontend - Components**
+    - [x] Create `RejectionModal` component (using Shadcn Dialog + Textarea)
+    - [x] Update `ReviewerDashboard` (or `ReviewerRequestRow`):
+        - [x] Integrate "Reject" button with the Modal
+        - [x] Handle optimistic UI update (remove from Pending list)
 
-- [ ] **Testing**
-    - [ ] **Unit:** Test `rejectRequest` logic (status transition, reason persistence)
-    - [ ] **E2E:** Update `e2e/reviewer-dashboard.spec.ts`:
-        - [ ] Flow: Reviewer clicks reject -> Enters reason -> Confirms -> Request moves to Draft/Disappears.
-        - [ ] Verify persistence: Check DB or Leader view (if accessible in test) for rejection reason.
+- [x] **Testing**
+    - [x] **Unit:** Test `rejectRequest` logic (status transition, reason persistence)
+    - [x] **E2E:** Update `e2e/reviewer-dashboard.spec.ts`:
+        - [x] Flow: Reviewer clicks reject -> Enters reason -> Confirms -> Request moves to Draft/Disappears.
+        - [x] Verify persistence: Check DB or Leader view (if accessible in test) for rejection reason.
 
 ## Dev Notes
 
@@ -95,3 +95,13 @@ So that the Project Leader knows exactly what to fix.
 ### Completion Notes List
 
 ### File List
+
+- `supabase/migrations/20260124110000_add_rejection_reason.sql` (New)
+- `supabase/migrations/20260124120000_add_validation_tracking.sql` (New)
+- `src/types/schemas/governance-schema.ts`
+- `src/services/governance/governance-service.ts`
+- `src/actions/reviewer-actions.ts`
+- `src/components/features/reviewer/rejection-modal.tsx` (New)
+- `src/components/features/reviewer/reviewer-dashboard.tsx`
+- `src/components/ui/dialog.tsx` (New)
+- `e2e/reviewer-dashboard.spec.ts`

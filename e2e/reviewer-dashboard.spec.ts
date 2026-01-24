@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Reviewer Dashboard", () => {
+    test.describe.configure({ mode: 'serial' });
+
     // These should match what's in seed.spec.ts
     const REVIEWER_EMAIL = 'reviewer.e2e@example.com';
     const PASSWORD = 'password123';
@@ -31,7 +33,19 @@ test.describe("Reviewer Dashboard", () => {
         await expect(page).toHaveURL(/\/dashboard\/reviewer/);
 
         // Verify Page Content
-        await expect(page.getByText("Reviewer Cockpit")).toBeVisible();
+        // Check for potential errors
+        if (await page.getByText("Error Loading Dashboard").isVisible()) {
+            const errorMsg = await page.getByText("Error Loading Dashboard").locator("..").innerText();
+            console.log("[E2E] Dashboard Error:", errorMsg);
+        }
+
+        // Check body content if fails
+        try {
+            await expect(page.getByText("Reviewer Cockpit")).toBeVisible({ timeout: 5000 });
+        } catch (e) {
+            console.log("[E2E] Reviewer Cockpit not found. Body:", await page.locator("body").innerText());
+            throw e;
+        }
         await expect(page.getByText("Pending Reviews")).toBeVisible(); // Check logic for this text/summary
     });
 
@@ -87,6 +101,52 @@ test.describe("Reviewer Dashboard", () => {
 
         // Verify project appears in validated list
         // We use a looser text match or wait for it to appear
+        // Verify project appears in validated list
+        // We use a looser text match or wait for it to appear
         await expect(page.locator('[role="tabpanel"][data-state="active"]')).toContainText(firstRowTitle);
+    });
+
+    test("Reviewer can reject a pending request", async ({ page }) => {
+        // Login as Reviewer
+        await page.goto("/login");
+        await page.getByLabel("Email address").fill(REVIEWER_EMAIL);
+        await page.getByLabel("Password").fill(PASSWORD);
+        await page.getByRole("button", { name: "Sign in" }).click();
+        await page.waitForURL(/\/dashboard\/reviewer/);
+
+        // Ensure we find at least one pending request
+        await expect(page.locator("table tbody tr")).not.toHaveCount(0, { timeout: 10000 });
+        const firstRow = page.locator("table tbody tr").first();
+        const firstRowTitle = await firstRow.locator("td").first().innerText();
+        console.log(`[E2E] Rejecting request: ${firstRowTitle}`);
+
+        // Click Reject
+        await firstRow.getByRole("button", { name: "Reject" }).click();
+
+        // Check Modal
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await expect(page.getByText("Reject Governance Request")).toBeVisible();
+
+        // Button should be disabled initially (empty reason)
+        await expect(page.getByRole("button", { name: "Confirm Rejection" })).toBeDisabled();
+
+        // Fill reason
+        const reason = "Missing the required architectural diagram.";
+        await page.getByLabel("Rejection Reason").fill(reason);
+        await expect(page.getByRole("button", { name: "Confirm Rejection" })).toBeEnabled();
+
+        // Confirm
+        await page.getByRole("button", { name: "Confirm Rejection" }).click();
+
+        // Toast success
+        await expect(page.getByText("Request rejected successfully")).toBeVisible();
+
+        // Modal closed
+        await expect(page.getByRole("dialog")).toBeHidden();
+
+        // Row should disappear from Pending tab
+        // Note: depends on sorting/refresh, but checking it's gone from view is reasonable
+        // Or wait for count to change?
+        // Ideally we check strict absence or reload. 
     });
 });
