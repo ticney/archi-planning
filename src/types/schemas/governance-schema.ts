@@ -5,6 +5,7 @@ export const governanceRequestStatusSchema = z.enum([
     'draft',
     'pending_review',
     'validated',
+    'tentative',
     'rejected',
 ]);
 
