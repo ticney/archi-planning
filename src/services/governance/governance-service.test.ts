@@ -258,4 +258,58 @@ describe('GovernanceService', () => {
             expect(result).toHaveLength(1);
         });
     });
+
+    describe('updateTopic', () => {
+        it('should update topic and set correct duration for standard topic', async () => {
+            const requestId = '123';
+            const topic = 'standard';
+            const expectedDuration = 30; // From slot-rules
+
+            // Mock getRequestById returning draft request
+            mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'draft' }, error: null });
+
+            // Mock update response
+            mockSingle.mockResolvedValueOnce({ data: { id: requestId }, error: null });
+
+            await service.updateTopic(requestId, topic);
+
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                topic: topic,
+                estimated_duration: expectedDuration
+            }));
+        });
+
+        it('should update topic and set correct duration for strategic topic', async () => {
+            const requestId = '123';
+            const topic = 'strategic';
+            const expectedDuration = 60; // From slot-rules
+
+            // Mock getRequestById returning draft request
+            mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'draft' }, error: null });
+
+            // Mock update response
+            mockSingle.mockResolvedValueOnce({ data: { id: requestId }, error: null });
+
+            await service.updateTopic(requestId, topic);
+
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                topic: topic,
+                estimated_duration: expectedDuration
+            }));
+        });
+
+        it('should throw error if request is not in draft status', async () => {
+            const requestId = '123';
+            const topic = 'standard';
+
+            // Mock getRequestById returning PENDING request
+            mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'pending_review' }, error: null });
+
+            await expect(service.updateTopic(requestId, topic))
+                .rejects.toThrow('Cannot update topic for requests that are not in draft status');
+
+            // Should NOT call update
+            expect(mockUpdate).not.toHaveBeenCalled();
+        });
+    });
 });

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { CreateGovernanceRequestInput, GovernanceRequest, GovernanceTopic, RecordAttachmentInput, Attachment } from '@/types/schemas/governance-schema';
 import { TOPIC_RULES, getMissingProofs } from './governance-rules';
+import { calculateSlotDuration } from '../scheduling/slot-rules';
 
 export class GovernanceService {
     async createRequest(input: CreateGovernanceRequestInput): Promise<GovernanceRequest> {
@@ -38,7 +39,15 @@ export class GovernanceService {
             throw new Error("User not authenticated");
         }
 
-        const { duration } = TOPIC_RULES[topic];
+        // 1. Fetch current status to ensure it's editable
+        const request = await this.getRequestById(requestId);
+        if (!request) throw new Error("Request not found");
+
+        if ((request.status as unknown as string) !== 'draft') {
+            throw new Error("Cannot update topic for requests that are not in draft status");
+        }
+
+        const duration = calculateSlotDuration(topic);
 
         const { data, error } = await supabase
             .from('governance_requests')
