@@ -1,6 +1,6 @@
 # Story 3.1: Reviewer Dashboard ("The Cockpit")
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -46,26 +46,26 @@ So that I can quickly assess which projects are ready for review.
 
 ## Tasks / Subtasks
 
-- [ ] **Database & RLS**
-    - [ ] **RLS:** Ensure `Reviewer` role has `SELECT` permission on `governance_requests` (all rows).
-    - [ ] **RLS:** Ensure `Reviewer` role has `SELECT` permission on `projects` (for joining details).
+- [x] **Database & RLS**
+    - [x] **RLS:** Ensure `Reviewer` role has `SELECT` permission on `governance_requests` (all rows).
+    - [x] **RLS:** Ensure `Reviewer` role has `SELECT` permission on `projects` (for joining details).
 
-- [ ] **Domain & Logic (Backend)**
-    - [ ] Update `src/services/governance/governance-service.ts`:
+- [x] **Domain & Logic (Backend)**
+    - [x] Update `src/services/governance/governance-service.ts`:
         -   Implement `getPendingRequests()`: Fetch requests with status `pending_review`, joined with Project details.
         -   Implement `calculateMaturityScore(request)`: Initial logic (can be simple count of proofs initially, or hardcoded mock for MVP if complex rules aren't defined yet).
 
-- [ ] **Server Actions**
-    - [ ] Create `src/actions/reviewer-actions.ts`:
+- [x] **Server Actions**
+    - [x] Create `src/actions/reviewer-actions.ts`:
         -   Implement `fetchReviewerDashboardData()` (if not using direct Server Component data fetching).
         -   *Note:* standard pattern suggests Server Components fetch data directly from Services. Use Actions for mutations.
 
-- [ ] **Frontend - Components**
-    - [ ] Create `src/components/features/reviewer/reviewer-dashboard.tsx`.
+- [x] **Frontend - Components**
+    - [x] Create `src/components/features/reviewer/reviewer-dashboard.tsx`.
         -   Use `TanStack Table` or `Shadcn Table` for high density.
-    - [ ] Create `src/components/features/governance/maturity-gauge.tsx`.
+    - [x] Create `src/components/features/governance/maturity-gauge.tsx`.
         -   Visual component (e.g., small progress bar or ring).
-    - [ ] Create `src/app/(dashboard)/reviewer/page.tsx`.
+    - [x] Create `src/app/(dashboard)/reviewer/page.tsx`.
         -   Ensure it uses `GovernanceService.getPendingRequests()`.
     -   Implement Realtime subscription (Supabase) to refresh list on new inserts/updates to `governance_requests`.
 
@@ -90,10 +90,30 @@ So that I can quickly assess which projects are ready for review.
 ## Dev Agent Record
 
 ### Agent Model Used
-{{agent_model_name_version}}
+Gemini 2.0 (via Antigravity)
+
+### Completion Notes (2026-01-24)
+- Implemented `ReviewerDashboard` including Realtime updates using Supabase channels and `router.refresh()`.
+- Created `MaturityGauge` and calculated scores based on topic rules.
+- Implemented `getPendingRequests` fetching requests with 'pending_review' status.
+- Added necessary RLS policies for `governance_requests` and fixed `request_attachments` RLS for Reviewer access.
+- Verified access control via E2E tests (`Reviewer` access OK, `Project Leader` redirected).
+- Moved `reviewer/page.tsx` to correct `src/app/dashboard/reviewer` path to resolve routing issues.
+- Updated `sprint-status.yaml` to `review`.
+- **Code Review Fixes (2026-01-24):**
+    - Created missing migration files for RLS policies (`reviewer_rls` and `fix_attachments_rls`).
+    - Fixed N+1 query in `fetchReviewerDashboardData` by implementing batch attachment fetching in `GovernanceService`.
+
 
 ## File List
-- src/app/(dashboard)/reviewer/page.tsx
+- src/app/dashboard/reviewer/page.tsx
+- src/actions/reviewer-actions.ts
 - src/services/governance/governance-service.ts
 - src/components/features/reviewer/reviewer-dashboard.tsx
 - src/components/features/governance/maturity-gauge.tsx
+- src/components/ui/progress.tsx
+- e2e/reviewer-dashboard.spec.ts
+- src/types/supabase.ts
+- supabase/migrations/20260124100000_fix_attachments_rls.sql
+- supabase/migrations/20260123140000_reviewer_rls.sql
+

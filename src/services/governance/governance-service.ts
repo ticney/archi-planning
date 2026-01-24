@@ -160,6 +160,36 @@ export class GovernanceService {
 
         return data;
     }
+
+    async getAttachmentsForRequests(requestIds: string[]): Promise<Record<string, Attachment[]>> {
+        if (requestIds.length === 0) return {};
+
+        const supabase = await createClient();
+
+        const { data, error } = await supabase
+            .from('request_attachments')
+            .select('*')
+            .in('request_id', requestIds)
+            .order('uploaded_at', { ascending: false });
+
+        if (error) {
+            console.error('GovernanceService Error (Batch):', error);
+            return {};
+        }
+
+        // Group by request_id
+        const grouped: Record<string, Attachment[]> = {};
+        requestIds.forEach(id => grouped[id] = []);
+
+        data.forEach(attachment => {
+            if (grouped[attachment.request_id]) {
+                grouped[attachment.request_id].push(attachment);
+            }
+        });
+
+        return grouped;
+    }
+
     async submitRequest(requestId: string): Promise<void> {
         const supabase = await createClient();
 
@@ -198,5 +228,42 @@ export class GovernanceService {
             console.error('GovernanceService Error: No rows updated. RLS check failed?');
             throw new Error("Failed to submit request: Permission denied or request not found.");
         }
+    }
+
+    async getPendingRequests(): Promise<GovernanceRequest[]> {
+        const supabase = await createClient();
+
+        const { data, error } = await supabase
+            .from('governance_requests')
+            .select('*')
+            .eq('status', 'pending_review')
+            .order('submitted_at', { ascending: true }); // Oldest first
+
+        if (error) {
+            console.error('GovernanceService Error:', error);
+            throw new Error(`Failed to fetch pending requests: ${error.message}`);
+        }
+
+        return data || [];
+    }
+
+    async calculateMaturityScore(request: GovernanceRequest): Promise<number> {
+        const attachments = await this.getAttachments(request.id);
+        return this.calculateMaturityScoreSync(request, attachments);
+    }
+
+    calculateMaturityScoreSync(request: GovernanceRequest, attachments: Attachment[]): number {
+        if (!request.topic || !TOPIC_RULES[request.topic as GovernanceTopic]) {
+            return 0;
+        }
+
+        const missing = getMissingProofs(request.topic as GovernanceTopic, attachments);
+        const requiredCount = TOPIC_RULES[request.topic as GovernanceTopic].proofs.length;
+
+        if (requiredCount === 0) return 100;
+
+        const uploadedCount = requiredCount - missing.length;
+        // Simple percentage calculation
+        return Math.round((uploadedCount / requiredCount) * 100);
     }
 }

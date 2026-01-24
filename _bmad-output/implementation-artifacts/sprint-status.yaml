@@ -57,7 +57,7 @@ development_status:
 
   # Epic 3: Governance Review (The Reviewer)
   epic-3: in-progress
-  3-1-reviewer-dashboard-the-cockpit: ready-for-dev
+  3-1-reviewer-dashboard-the-cockpit: done
   3-2-governance-validation-the-green-button: backlog
   3-3-governance-rejection-the-guardrail: backlog
   epic-3-retrospective: optional

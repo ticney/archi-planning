@@ -135,4 +135,60 @@ describe('GovernanceService', () => {
 
         await expect(service.submitRequest(requestId)).rejects.toThrow(/Missing mandatory documents/);
     });
+
+    describe('getPendingRequests', () => {
+        it('should fetch all requests with status pending_review', async () => {
+            const mockData = [
+                { id: '1', title: 'Project A', status: 'pending_review' },
+                { id: '2', title: 'Project B', status: 'pending_review' }
+            ];
+
+            // Setup select().eq().order()
+            const chain = {
+                select: mockSelect,
+                eq: mockEq,
+                order: mockOrder,
+                then: (resolve: any) => resolve({ data: mockData, error: null })
+            };
+            mockFrom.mockReturnValue(chain);
+            mockSelect.mockReturnValue(chain);
+            mockEq.mockReturnValue(chain);
+            mockOrder.mockResolvedValue({ data: mockData, error: null });
+
+            const result = await service.getPendingRequests();
+
+            expect(mockFrom).toHaveBeenCalledWith('governance_requests');
+            expect(mockSelect).toHaveBeenCalledWith(expect.stringContaining('*'));
+            expect(mockEq).toHaveBeenCalledWith('status', 'pending_review');
+            expect(result).toHaveLength(2);
+        });
+    });
+
+    describe('calculateMaturityScore', () => {
+        it('should calculate score based on proofs count relative to topic rules', async () => {
+            const request: any = {
+                id: '123',
+                topic: 'standard',
+                status: 'pending_review'
+            };
+            const attachments = [
+                { document_type: 'dat_sheet' },
+                { document_type: 'architecture_diagram' }
+            ];
+
+            mockOrder.mockResolvedValue({ data: attachments, error: null });
+
+            const score = await service.calculateMaturityScore(request);
+
+            // Standard requires 2 docs. 2/2 = 100
+            expect(score).toBe(100);
+        });
+
+        it('should return 0 if no topic set', async () => {
+            const request: any = { id: '123', status: 'pending_review' }; // No topic
+            mockOrder.mockResolvedValue({ data: [], error: null });
+            const score = await service.calculateMaturityScore(request);
+            expect(score).toBe(0);
+        });
+    });
 });
