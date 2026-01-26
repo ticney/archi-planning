@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { startOfWeek, endOfWeek, addDays, format, isSameDay } from 'date-fns';
-import { getMasterScheduleAction } from '@/actions/scheduling-actions';
+import { getMasterScheduleAction, confirmSlotAction } from '@/actions/scheduling-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2, CheckCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { GovernanceRequest } from '@/types/schemas/governance-schema';
+import { toast } from 'sonner';
 
 type ScheduledRequest = GovernanceRequest & {
     booking_end_at: string; // Serialized
@@ -49,6 +50,23 @@ export function MasterSchedule() {
     useEffect(() => {
         loadSchedule();
     }, [currentDate]);
+
+    const handleConfirm = async (requestId: string) => {
+        // Optimistic update
+        setSchedule(prev => prev.map(req =>
+            req.id === requestId ? { ...req, status: 'confirmed' } : req
+        ) as ScheduledRequest[]);
+
+        const result = await confirmSlotAction(requestId);
+        if (result.success) {
+            toast.success("Slot confirmed");
+            // Optionally reload to ensure data consistency
+            // loadSchedule(); 
+        } else {
+            toast.error(result.error || "Failed to confirm");
+            loadSchedule(); // Revert/Refresh
+        }
+    };
 
     const nextWeek = () => setCurrentDate(addDays(currentDate, 7));
     const prevWeek = () => setCurrentDate(addDays(currentDate, -7));
@@ -101,7 +119,7 @@ export function MasterSchedule() {
                                             <div className="text-xs text-center text-slate-400 py-4 italic">No items</div>
                                         )}
                                         {dayRequests.map(req => (
-                                            <ScheduleItem key={req.id} request={req} />
+                                            <ScheduleItem key={req.id} request={req} onConfirm={handleConfirm} />
                                         ))}
                                     </div>
                                 </div>
@@ -114,12 +132,12 @@ export function MasterSchedule() {
     );
 }
 
-function ScheduleItem({ request }: { request: ScheduledRequest }) {
+function ScheduleItem({ request, onConfirm }: { request: ScheduledRequest; onConfirm: (id: string) => void }) {
     const startTime = new Date(request.booking_start_at!);
     const endTime = new Date(request.booking_end_at); // Pre-calculated/serialized
 
     // Color coding
-    const statusColor = request.status === 'confirmed'
+    const statusColor = (request.status as any) === 'confirmed'
         ? 'bg-green-100 dark:bg-green-900 border-green-200 dark:border-green-800'
         : 'bg-yellow-100 dark:bg-yellow-900 border-yellow-200 dark:border-yellow-800';
 
@@ -150,7 +168,7 @@ function ScheduleItem({ request }: { request: ScheduledRequest }) {
                         </div>
                         <div>
                             <span className="font-semibold">Status:</span>
-                            <Badge variant={request.status === 'confirmed' ? 'default' : 'outline'} className="ml-1 text-[10px]">
+                            <Badge variant={(request.status as any) === 'confirmed' ? 'default' : 'outline'} className="ml-1 text-[10px]">
                                 {request.status}
                             </Badge>
                         </div>
@@ -158,6 +176,17 @@ function ScheduleItem({ request }: { request: ScheduledRequest }) {
                             <span className="font-semibold">Leader:</span> <span className="font-mono">{request.created_by.slice(0, 8)}...</span>
                         </div>
                     </div>
+
+                    {(request.status as any) === 'tentative' && (
+                        <Button
+                            className="w-full mt-2"
+                            size="sm"
+                            onClick={() => onConfirm(request.id)}
+                        >
+                            <CheckCircle className="mr-2 h-3 w-3" />
+                            Confirm Booking
+                        </Button>
+                    )}
                 </div>
             </PopoverContent>
         </Popover>

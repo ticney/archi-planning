@@ -1,6 +1,7 @@
 'use server';
 
-import { bookSlot } from '@/services/scheduling/scheduling-service';
+import { bookSlot, confirmSlot } from '@/services/scheduling/scheduling-service';
+import { generateDailyAgenda } from '@/services/scheduling/agenda-exporter';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -58,7 +59,7 @@ export async function getMasterScheduleAction(range: { start: string; end: strin
         }
 
         const { AuthService } = await import('@/services/auth/auth-service');
-        const allowedRoles: import('@/types').UserRole[] = ['organizer', 'admin'];
+        const allowedRoles = ['organizer', 'admin'] as const;
         const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
 
         if (!isAuthorized) {
@@ -83,5 +84,54 @@ export async function getMasterScheduleAction(range: { start: string; end: strin
     } catch (error) {
         console.error('Failed to get master schedule:', error);
         return { success: false, error: 'Failed to fetch schedule' };
+    }
+}
+
+export async function confirmSlotAction(requestId: string) {
+    try {
+        const { createClient } = await import('@/lib/supabase/server');
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return { success: false, error: 'Unauthorized' };
+
+        const { AuthService } = await import('@/services/auth/auth-service');
+        const allowedRoles = ['organizer', 'admin'] as const;
+        const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
+        if (!isAuthorized) return { success: false, error: 'Forbidden' };
+
+        const result = await confirmSlot(requestId, user.id);
+
+        if (result.success) {
+            revalidatePath('/dashboard/project');
+        }
+
+        return result;
+    } catch (error) {
+        console.error('Confirm failed:', error);
+        return { success: false, error: 'Internal server error' };
+    }
+}
+
+export async function exportAgendaAction(dateString: string) {
+    try {
+        const { createClient } = await import('@/lib/supabase/server');
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return { success: false, error: 'Unauthorized' };
+
+        const { AuthService } = await import('@/services/auth/auth-service');
+        const allowedRoles = ['organizer', 'admin'] as const;
+        const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
+        if (!isAuthorized) return { success: false, error: 'Forbidden' };
+
+        const date = new Date(dateString);
+        const text = await generateDailyAgenda(date);
+
+        return { success: true, data: text };
+    } catch (error) {
+        console.error('Export failed:', error);
+        return { success: false, error: 'Failed to export agenda' };
     }
 }

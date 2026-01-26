@@ -1,11 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getAvailableSlots, bookSlot } from './scheduling-service';
+import { getAvailableSlots, bookSlot, confirmSlot } from './scheduling-service';
+import { NotificationService } from '@/services/notifications/notification-service';
+import { AuditService } from '@/services/audit/audit-service';
 import { createClient } from '@/lib/supabase/server';
 import { startOfDay, endOfDay, setHours, setMinutes, addMinutes } from 'date-fns';
 
 // Mock Supabase
 vi.mock('@/lib/supabase/server', () => ({
     createClient: vi.fn()
+}));
+
+// Mock Notification and Audit Services
+vi.mock('@/services/notifications/notification-service', () => ({
+    NotificationService: {
+        sendConfirmationEmail: vi.fn()
+    }
+}));
+
+vi.mock('@/services/audit/audit-service', () => ({
+    AuditService: {
+        logAction: vi.fn()
+    }
 }));
 
 describe('Scheduling Service', () => {
@@ -195,6 +210,61 @@ describe('Scheduling Service', () => {
             expect(results[0].title).toBe('Project A');
             // 14:00 + 30 mins = 14:30
             expect(results[0].booking_end_at).toEqual(new Date('2026-01-23T14:30:00Z'));
+        });
+    });
+
+    describe('confirmSlot', () => {
+        it('fails if request not found', async () => {
+            mockSupabase.single.mockResolvedValue({ data: null, error: { message: 'Not found' } });
+            const result = await confirmSlot('req-1', 'organizer-id');
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Request not found');
+        });
+
+        it('fails if status is not tentative', async () => {
+            mockSupabase.single.mockResolvedValue({ data: { status: 'draft' }, error: null });
+            const result = await confirmSlot('req-1', 'organizer-id');
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Validation failed');
+        });
+
+        it('confirms the slot and sends notifications', async () => {
+            // Mock valid request
+            const mockRequest = {
+                id: 'req-1',
+                status: 'tentative',
+                booking_start_at: new Date().toISOString(),
+                user_email: 'test@example.com',
+                created_by: 'user-uuid',
+                topic: 'standard',
+                title: 'Project A',
+                leader_id: 'leader-1'
+            };
+
+            mockSupabase.single.mockResolvedValue({ data: mockRequest, error: null });
+            mockSupabase.update.mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ error: null })
+            });
+
+            const result = await confirmSlot('req-1', 'organizer-id');
+
+            expect(result.success).toBe(true);
+
+            // Verify DB update
+            expect(mockSupabase.update).toHaveBeenCalledWith({ status: 'confirmed' });
+
+            // Verify Side Effects
+            expect(NotificationService.sendConfirmationEmail).toHaveBeenCalledWith(
+                mockRequest.created_by,
+                expect.anything()
+            );
+            expect(AuditService.logAction).toHaveBeenCalledWith(
+                'confirm_slot',
+                expect.objectContaining({
+                    requestId: 'req-1',
+                    user_id: 'organizer-id'
+                })
+            );
         });
     });
 

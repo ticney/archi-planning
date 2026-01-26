@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { GovernanceRequest, governanceRequestStatusSchema, GovernanceTopic } from '@/types/schemas/governance-schema';
 import { calculateSlotDuration } from './slot-rules';
 import { addMinutes, startOfDay, endOfDay, setHours, setMinutes, isBefore, isAfter, isWeekend } from 'date-fns';
+import { NotificationService } from '../notifications/notification-service';
+import { AuditService } from '../audit/audit-service';
 
 
 export interface BookingSlot {
@@ -201,4 +203,57 @@ export async function getAllScheduledRequests(startDate: Date, endDate: Date): P
             booking_end_at: addMinutes(start, duration)
         };
     });
+}
+
+/**
+ * Confirms a tentative slot.
+ */
+export async function confirmSlot(requestId: string, actorId: string): Promise<{ success: boolean; error?: string }> {
+    const supabase = await createClient();
+
+    // 1. Get Request
+    const { data: request, error: reqError } = await supabase
+        .from('governance_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+    if (reqError || !request) {
+        return { success: false, error: 'Request not found' };
+    }
+
+    // 2. Validate Status
+    if (request.status !== 'tentative') {
+        return { success: false, error: 'Validation failed: Request is not in tentative status' };
+    }
+
+    // 3. Update Request
+    const { error: updateError } = await supabase
+        .from('governance_requests')
+        .update({ status: 'confirmed' })
+        .eq('id', requestId);
+
+    if (updateError) {
+        return { success: false, error: 'Failed to confirm booking' };
+    }
+
+    // 4. Side Effects (Notifications & Audit)
+    try {
+        await NotificationService.sendConfirmationEmail(request.created_by, {
+            requestId: request.id,
+            title: request.title,
+            startAt: request.booking_start_at
+        });
+
+        await AuditService.logAction('confirm_slot', {
+            requestId: request.id,
+            user_id: actorId,
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error('Side effect failed', e);
+        // Continue, as DB update succeeded
+    }
+
+    return { success: true };
 }

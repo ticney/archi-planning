@@ -40,6 +40,7 @@ describe("AuthService", () => {
 
     it("should call supabase signInWithPassword on valid input", async () => {
         mockSignInWithPassword.mockResolvedValue({ data: { user: { id: "1" } }, error: null });
+        mockSingle.mockResolvedValue({ data: { role: "user" }, error: null }); // Fix: Mock profile fetch
 
         const result = await AuthService.login({
             email: "test@example.com",
@@ -90,15 +91,15 @@ describe("AuthService", () => {
             // Since getUserRole calls DB, we mock the DB call again
             mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
 
-            const allowed = await AuthService.ensureUserRole("user-123", ["admin", "project_leader"]);
-            expect(allowed).toBe(true);
-        });
+            const allowed: any = ["admin", "project_leader"];
+            const allowed2: any = ["admin"];
 
-        it("should return false if role does not match", async () => {
+            const result1 = await AuthService.ensureUserRole("user-123", allowed);
+            expect(result1).toBe(true);
+
             mockSingle.mockResolvedValue({ data: { role: "project_leader" }, error: null });
-
-            const allowed = await AuthService.ensureUserRole("user-123", ["admin"]);
-            expect(allowed).toBe(false);
+            const result2 = await AuthService.ensureUserRole("user-123", allowed2);
+            expect(result2).toBe(false);
         });
     });
 });
