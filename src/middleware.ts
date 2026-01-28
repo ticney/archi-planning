@@ -39,10 +39,13 @@ export async function middleware(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     // 1. Enforce Auth for Protected Routes
-    if (
-        !user &&
-        request.nextUrl.pathname.startsWith("/dashboard")
-    ) {
+    const isProtectedRoute =
+        request.nextUrl.pathname.startsWith("/admin") ||
+        request.nextUrl.pathname.startsWith("/project") ||
+        request.nextUrl.pathname.startsWith("/reviewer") ||
+        request.nextUrl.pathname.startsWith("/organizer");
+
+    if (!user && isProtectedRoute) {
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         return NextResponse.redirect(url);
@@ -64,26 +67,26 @@ export async function middleware(request: NextRequest) {
 
         // 3. Handle Root/Login Redirection (If logged in, go to specific dashboard)
         if (request.nextUrl.pathname === "/" || request.nextUrl.pathname === "/login") {
-            if (role === 'admin') return NextResponse.redirect(new URL("/dashboard/admin/users", request.url));
-            if (role === 'reviewer') return NextResponse.redirect(new URL("/dashboard/reviewer", request.url));
-            if (role === 'organizer') return NextResponse.redirect(new URL("/dashboard/organizer", request.url));
-            return NextResponse.redirect(new URL("/dashboard/project", request.url)); // Default to project leader
+            if (role === 'admin') return NextResponse.redirect(new URL("/admin/users", request.url));
+            if (role === 'reviewer') return NextResponse.redirect(new URL("/reviewer", request.url));
+            if (role === 'organizer') return NextResponse.redirect(new URL("/organizer", request.url));
+            return NextResponse.redirect(new URL("/project", request.url)); // Default to project leader
         }
 
         // 4. Enforce Role Protection on Specific Routes
         const path = request.nextUrl.pathname;
         let isAuthorized = true;
 
-        if (path.startsWith("/dashboard/admin") && role !== 'admin') isAuthorized = false;
-        if (path.startsWith("/dashboard/reviewer") && role !== 'reviewer') isAuthorized = false;
-        if (path.startsWith("/dashboard/organizer") && role !== 'organizer') isAuthorized = false;
+        if (path.startsWith("/admin") && role !== 'admin') isAuthorized = false;
+        if (path.startsWith("/reviewer") && role !== 'reviewer') isAuthorized = false;
+        if (path.startsWith("/organizer") && role !== 'organizer') isAuthorized = false;
 
         if (!isAuthorized) {
             // Redirect to their allowed home
-            if (role === 'admin') return NextResponse.redirect(new URL("/dashboard/admin/users", request.url));
-            if (role === 'reviewer') return NextResponse.redirect(new URL("/dashboard/reviewer", request.url));
-            if (role === 'organizer') return NextResponse.redirect(new URL("/dashboard/organizer", request.url));
-            return NextResponse.redirect(new URL("/dashboard/project", request.url));
+            if (role === 'admin') return NextResponse.redirect(new URL("/admin/users", request.url));
+            if (role === 'reviewer') return NextResponse.redirect(new URL("/reviewer", request.url));
+            if (role === 'organizer') return NextResponse.redirect(new URL("/organizer", request.url));
+            return NextResponse.redirect(new URL("/project", request.url));
         }
     }
 

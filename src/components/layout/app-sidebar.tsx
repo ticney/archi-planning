@@ -30,32 +30,26 @@ const data = {
     },
     navMain: [
         {
-            title: "Dashboard",
-            url: "/dashboard",
-            icon: LayoutDashboard,
-            roles: ["*"], // All Roles
-        },
-        {
-            title: "Projects",
-            url: "/dashboard/projects",
+            title: "Project",
+            url: "/project",
             icon: FolderOpen,
             roles: ["LEADER", "ADMIN"],
         },
         {
             title: "Reviews",
-            url: "/dashboard/reviews",
+            url: "/reviewer",
             icon: FileCheck,
             roles: ["REVIEWER", "ADMIN"],
         },
         {
             title: "Schedule",
-            url: "/dashboard/schedule",
+            url: "/organizer",
             icon: Calendar,
             roles: ["ORGANIZER", "ADMIN"],
         },
         {
-            title: "Settings",
-            url: "/dashboard/admin", // Assuming admin route
+            title: "Admin",
+            url: "/admin",
             icon: Settings,
             roles: ["ADMIN"],
         },
