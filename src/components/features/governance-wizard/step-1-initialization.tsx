@@ -48,7 +48,7 @@ export function Step1Initialization() {
 
     useEffect(() => {
         if (state.success) {
-            window.location.href = `/governance/wizard/${state.data.id}/step-2`;
+            window.location.href = `/governance/wizard/${state.data?.id}/step-2`;
         }
     }, [state, router]);
 

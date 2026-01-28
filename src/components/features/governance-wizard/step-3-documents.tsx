@@ -5,10 +5,26 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GovernanceRequest, Attachment, AttachmentType } from '@/types/schemas/governance-schema';
-import { TOPIC_RULES, getMissingProofs, PROOF_NAME_TO_TYPE } from '@/services/governance/governance-rules';
+import { getMissingProofs } from '@/services/governance/governance-rules';
 import { FileUploader } from './file-uploader';
 import { getAttachmentsAction, deleteAttachmentAction } from '@/actions/governance-actions';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+// Display labels for proof types
+const PROOF_LABELS: Record<string, string> = {
+    dat_sheet: "DAT Sheet",
+    architecture_diagram: "Architecture Diagram",
+    security_signoff: "Security Sign-off",
+    finops_approval: "FinOps Approval",
+    other: "Other Document"
+};
+
+// Legacy fallback for requests created before dynamic rules
+const LEGACY_TOPIC_RULES: Record<string, string[]> = {
+    standard: ['dat_sheet', 'architecture_diagram'],
+    strategic: ['dat_sheet', 'security_signoff', 'finops_approval']
+};
 
 interface Step3DocumentsProps {
     request: GovernanceRequest;
@@ -20,9 +36,18 @@ export function Step3Documents({ request }: Step3DocumentsProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [isNavigating, setIsNavigating] = useState(false);
 
-    const topic = request.topic as keyof typeof TOPIC_RULES;
-    // getMissingProofs now handles topic being potentially raw string from DB if cast properly
-    const missingProofs = getMissingProofs(topic, attachments);
+    const topic = request.topic as string;
+
+    // Determine required proofs: use snapshot if available, else legacy fallback
+    let requiredProofs: string[] = [];
+    if (request.requirements_snapshot && Array.isArray(request.requirements_snapshot)) {
+        requiredProofs = request.requirements_snapshot as string[];
+    } else if (topic && LEGACY_TOPIC_RULES[topic]) {
+        requiredProofs = LEGACY_TOPIC_RULES[topic];
+    }
+
+    // Calculate details
+    const missingProofs = getMissingProofs(requiredProofs, attachments);
     const isValid = missingProofs.length === 0;
 
     const fetchAttachments = useCallback(async () => {
@@ -66,34 +91,31 @@ export function Step3Documents({ request }: Step3DocumentsProps) {
         }
     };
 
-    // If topic is not set or valid, we shouldn't be here really
-    if (!topic || !TOPIC_RULES[topic as keyof typeof TOPIC_RULES]) {
-        return <div className="p-4 text-red-500">Invalid topic configuration. Please return to Step 2.</div>;
+    if (requiredProofs.length === 0) {
+        return <div className="p-4 text-amber-600">No document requirements found for this topic.</div>;
     }
-
-    const { proofs } = TOPIC_RULES[topic as keyof typeof TOPIC_RULES];
 
     return (
         <div className="space-y-8">
             <div className="space-y-4">
-                <h3 className="text-lg font-medium">Mandatory Documents ({proofs.length})</h3>
+                <h3 className="text-lg font-medium">Mandatory Documents ({requiredProofs.length})</h3>
                 <p className="text-sm text-muted-foreground">
                     Please upload the following documents required for a <strong>{topic}</strong> review.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {proofs.map((proofName) => {
-                        const docType = PROOF_NAME_TO_TYPE[proofName] as AttachmentType;
-                        if (!docType) return null;
+                    {requiredProofs.map((slug) => {
+                        const docType = slug as AttachmentType;
+                        const label = PROOF_LABELS[slug] || slug; // Fallback to slug if no label
 
                         const existingFile = attachments.find(a => a.document_type === docType);
 
                         return (
                             <FileUploader
-                                key={proofName}
+                                key={slug}
                                 requestId={request.id}
                                 documentType={docType}
-                                label={proofName}
+                                label={label}
                                 onUploadComplete={handleUploadComplete}
                                 existingFile={existingFile ? {
                                     filename: existingFile.filename,
@@ -140,6 +162,3 @@ export function Step3Documents({ request }: Step3DocumentsProps) {
         </div>
     );
 }
-
-// Helper for cn (usually in lib/utils but repeated for safety if not importing)
-import { cn } from '@/lib/utils';

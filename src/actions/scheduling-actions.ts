@@ -59,7 +59,7 @@ export async function getMasterScheduleAction(range: { start: string; end: strin
         }
 
         const { AuthService } = await import('@/services/auth/auth-service');
-        const allowedRoles = ['organizer', 'admin'] as const;
+        const allowedRoles: ("project_leader" | "reviewer" | "organizer" | "admin")[] = ['organizer', 'admin'];
         const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
 
         if (!isAuthorized) {
@@ -96,7 +96,7 @@ export async function confirmSlotAction(requestId: string) {
         if (!user) return { success: false, error: 'Unauthorized' };
 
         const { AuthService } = await import('@/services/auth/auth-service');
-        const allowedRoles = ['organizer', 'admin'] as const;
+        const allowedRoles: ("project_leader" | "reviewer" | "organizer" | "admin")[] = ['organizer', 'admin'];
         const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
         if (!isAuthorized) return { success: false, error: 'Forbidden' };
 
@@ -122,7 +122,7 @@ export async function exportAgendaAction(dateString: string) {
         if (!user) return { success: false, error: 'Unauthorized' };
 
         const { AuthService } = await import('@/services/auth/auth-service');
-        const allowedRoles = ['organizer', 'admin'] as const;
+        const allowedRoles: ("project_leader" | "reviewer" | "organizer" | "admin")[] = ['organizer', 'admin'];
         const isAuthorized = await AuthService.ensureUserRole(user.id, allowedRoles);
         if (!isAuthorized) return { success: false, error: 'Forbidden' };
 

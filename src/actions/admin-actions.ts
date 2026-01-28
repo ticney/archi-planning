@@ -55,3 +55,77 @@ export async function updateRole(data: UpdateRoleValues): Promise<ActionResult<v
     revalidatePath("/dashboard/admin/users");
     return { success: true };
 }
+
+// Governance Checklist Configuration Actions
+
+import { GovernanceAdminService } from "@/services/governance/admin-service";
+import { AuthService } from "@/services/auth/auth-service";
+
+export async function getChecklistConfig(): Promise<ActionResult<{ topics: any[], proofTypes: any[] }>> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const isAdmin = await AuthService.ensureUserRole(user.id, ["admin"]);
+    if (!isAdmin) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const service = new GovernanceAdminService();
+    try {
+        const topics = await service.getTopics();
+        const proofTypes = await service.getProofTypes();
+        return { success: true, data: { topics, proofTypes } };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function addRequirementAction(topicSlug: string, proofTypeSlug: string): Promise<ActionResult<void>> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const isAdmin = await AuthService.ensureUserRole(user.id, ["admin"]);
+    if (!isAdmin) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const service = new GovernanceAdminService();
+    try {
+        await service.addProofRequirement(topicSlug, proofTypeSlug);
+        revalidatePath("/dashboard/admin/checklists");
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function removeRequirementAction(topicSlug: string, proofTypeSlug: string): Promise<ActionResult<void>> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const isAdmin = await AuthService.ensureUserRole(user.id, ["admin"]);
+    if (!isAdmin) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const service = new GovernanceAdminService();
+    try {
+        await service.removeProofRequirement(topicSlug, proofTypeSlug);
+        revalidatePath("/dashboard/admin/checklists");
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}

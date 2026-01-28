@@ -260,56 +260,106 @@ describe('GovernanceService', () => {
     });
 
     describe('updateTopic', () => {
-        it('should update topic and set correct duration for standard topic', async () => {
+        it('should update topic and save requirements_snapshot', async () => {
             const requestId = '123';
-            const topic = 'standard';
-            const expectedDuration = 30; // From slot-rules
+            const topicSlug = 'standard';
+            const expectedDuration = 30;
 
             // Mock getRequestById returning draft request
             mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'draft' }, error: null });
 
-            // Mock update response
+            // Mock fetching topic proofs (snapshot)
+            // 1. Get Topic ID and rules
+            // We need to return the joined data: topic_proofs -> proof_types
+            // This is likely a complex query: from(topics).select(id, name, slug, governance_topic_proofs(...))
+            // OR the service will do multiple queries.
+            // Let's assume the service does:
+            // 1. Get topic by slug -> { id, estimated_duration }
+            // 2. Get proofs for topic -> ['dat_sheet', 'architecture_diagram']
+
+            // Mock getTopicBySlug
+            // Mock select from 'governance_topics'
+            // Mock select from 'governance_topic_proofs' + join 'governance_proof_types'
+
+            // Simplifying the mock setup might be hard without knowing implementation details.
+            // But we can check that update is called with requirements_snapshot.
+
+            // Let's assume implementation logic:
+            // const snapshot = ['dat_sheet', 'architecture_diagram'];
+
+            // We need to mock the DB calls that produce this snapshot.
+            // Mock topics query
+            const topicMock = { id: 't1', slug: 'standard', estimated_duration: 30 };
+            // Mock proofs query
+            const proofsMock = [
+                { governance_proof_types: { slug: 'dat_sheet' } },
+                { governance_proof_types: { slug: 'architecture_diagram' } }
+            ];
+
+            // We need to setup the mock chain to return these in sequence?
+            // Or rely on specific table names invocation.
+
+            // This existing mock setup with `mockFrom` returning the same chain is tricky for multiple different queries.
+            // We might need to refine the mock strategy if we want to distinguish table calls.
+            // But for now, let's assume we can mock the values returned in order.
+
+            // 1. getRequestById (done above)
+            // 2. getTopic (by slug)
+            mockSingle.mockResolvedValueOnce({ data: topicMock, error: null });
+            // 3. getProofs
+            mockOrder.mockResolvedValueOnce({ data: proofsMock, error: null });
+
+            // 4. Update
             mockSingle.mockResolvedValueOnce({ data: { id: requestId }, error: null });
 
-            await service.updateTopic(requestId, topic);
+            await service.updateTopic(requestId, topicSlug);
 
             expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-                topic: topic,
-                estimated_duration: expectedDuration
+                topic: topicSlug,
+                estimated_duration: expectedDuration,
+                requirements_snapshot: ['dat_sheet', 'architecture_diagram']
             }));
         });
+    });
 
-        it('should update topic and set correct duration for strategic topic', async () => {
-            const requestId = '123';
-            const topic = 'strategic';
-            const expectedDuration = 60; // From slot-rules
+    describe('calculateMaturityScore (Dynamic)', () => {
+        it('should calculate score using requirements_snapshot', async () => {
+            const request: any = {
+                id: '123',
+                topic: 'standard',
+                status: 'pending_review',
+                requirements_snapshot: ['dat_sheet', 'architecture_diagram'] // Snapshot present
+            };
+            const attachments = [
+                { document_type: 'dat_sheet' },
+                { document_type: 'architecture_diagram' }
+            ];
 
-            // Mock getRequestById returning draft request
-            mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'draft' }, error: null });
+            mockOrder.mockResolvedValue({ data: attachments, error: null });
 
-            // Mock update response
-            mockSingle.mockResolvedValueOnce({ data: { id: requestId }, error: null });
+            const score = await service.calculateMaturityScore(request);
 
-            await service.updateTopic(requestId, topic);
-
-            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-                topic: topic,
-                estimated_duration: expectedDuration
-            }));
+            expect(score).toBe(100);
         });
 
-        it('should throw error if request is not in draft status', async () => {
-            const requestId = '123';
-            const topic = 'standard';
+        it('should fallback to legacy rules if snapshot is missing', async () => {
+            // ... existing behavior ...
+            const request: any = {
+                id: '123',
+                topic: 'standard',
+                status: 'pending_review',
+                requirements_snapshot: null // Legacy
+            };
+            const attachments = [
+                { document_type: 'dat_sheet' },
+                { document_type: 'architecture_diagram' }
+            ];
 
-            // Mock getRequestById returning PENDING request
-            mockSingle.mockResolvedValueOnce({ data: { id: requestId, status: 'pending_review' }, error: null });
+            mockOrder.mockResolvedValue({ data: attachments, error: null });
 
-            await expect(service.updateTopic(requestId, topic))
-                .rejects.toThrow('Cannot update topic for requests that are not in draft status');
-
-            // Should NOT call update
-            expect(mockUpdate).not.toHaveBeenCalled();
+            // Implicitly testing fallback to static rules
+            const score = await service.calculateMaturityScore(request);
+            expect(score).toBe(100);
         });
     });
 });

@@ -1,7 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { CreateGovernanceRequestInput, GovernanceRequest, GovernanceTopic, RecordAttachmentInput, Attachment } from '@/types/schemas/governance-schema';
-import { TOPIC_RULES, getMissingProofs } from './governance-rules';
+import { getMissingProofs } from './governance-rules';
 import { calculateSlotDuration } from '../scheduling/slot-rules';
+
+// Legacy fallback for requests created before dynamic rules
+const LEGACY_TOPIC_RULES: Record<string, string[]> = {
+    standard: ['dat_sheet', 'architecture_diagram'],
+    strategic: ['dat_sheet', 'security_signoff', 'finops_approval']
+};
 
 export class GovernanceService {
     async createRequest(input: CreateGovernanceRequestInput): Promise<GovernanceRequest> {
@@ -47,6 +53,25 @@ export class GovernanceService {
             throw new Error("Cannot update topic for requests that are not in draft status");
         }
 
+        // 2. Fetch Topic & Requirements from DB
+        const { data: topicData, error: topicError } = await supabase
+            .from('governance_topics')
+            .select('id, slug')
+            .eq('slug', topic)
+            .single();
+
+        if (topicError || !topicData) throw new Error(`Topic not found: ${topic}`);
+
+        const { data: proofs, error: proofsError } = await supabase
+            .from('governance_topic_proofs')
+            .select('governance_proof_types(slug)')
+            .eq('topic_id', topicData.id);
+
+        if (proofsError) throw new Error(`Failed to fetch topic proofs: ${proofsError.message}`);
+
+        // Flatten to array of slugs
+        const requirementsSnapshot = proofs.map((p: any) => p.governance_proof_types.slug);
+
         const duration = calculateSlotDuration(topic);
 
         const { data, error } = await supabase
@@ -54,6 +79,7 @@ export class GovernanceService {
             .update({
                 topic: topic,
                 estimated_duration: duration,
+                requirements_snapshot: requirementsSnapshot,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', requestId)
@@ -210,7 +236,15 @@ export class GovernanceService {
         const attachments = await this.getAttachments(requestId);
 
         // 3. Validate Proofs
-        const missing = getMissingProofs(request.topic as GovernanceTopic, attachments);
+        // Use snapshot if available, else usage legacy fallback
+        let requiredProofs: string[] = [];
+        if (request.requirements_snapshot && Array.isArray(request.requirements_snapshot)) {
+            requiredProofs = request.requirements_snapshot as string[];
+        } else if (request.topic && LEGACY_TOPIC_RULES[request.topic]) {
+            requiredProofs = LEGACY_TOPIC_RULES[request.topic];
+        }
+
+        const missing = getMissingProofs(requiredProofs, attachments);
         if (missing.length > 0) {
             console.error(`[submitRequest] Missing proofs: ${missing.join(', ')} for topic ${request.topic}`);
             console.error(`[submitRequest] Attachments found: ${JSON.stringify(attachments.map(a => a.document_type))}`);
@@ -263,16 +297,28 @@ export class GovernanceService {
     }
 
     calculateMaturityScoreSync(request: GovernanceRequest, attachments: Attachment[]): number {
-        if (!request.topic || !TOPIC_RULES[request.topic as GovernanceTopic]) {
-            return 0;
+        console.error(`[DEBUG START] Request Topic: ${request.topic}`);
+        let requiredProofs: string[] = [];
+
+        if (request.requirements_snapshot && Array.isArray(request.requirements_snapshot)) {
+            requiredProofs = request.requirements_snapshot as string[];
+        } else if (request.topic && LEGACY_TOPIC_RULES[request.topic]) {
+            requiredProofs = LEGACY_TOPIC_RULES[request.topic];
+        } else {
+            return 0; // No topic
         }
 
-        const missing = getMissingProofs(request.topic as GovernanceTopic, attachments);
-        const requiredCount = TOPIC_RULES[request.topic as GovernanceTopic].proofs.length;
-
+        const requiredCount = requiredProofs.length;
         if (requiredCount === 0) return 100;
 
+        const missing = getMissingProofs(requiredProofs, attachments);
+        console.error(`[DEBUG] Topic: ${request.topic}`);
+        console.error(`[DEBUG] Required: ${JSON.stringify(requiredProofs)}`);
+        console.error(`[DEBUG] Attachments Types: ${JSON.stringify(attachments.map(a => a.document_type))}`);
+        console.error(`[DEBUG] Missing: ${JSON.stringify(missing)}`);
+
         const uploadedCount = requiredCount - missing.length;
+
         // Simple percentage calculation
         return Math.round((uploadedCount / requiredCount) * 100);
     }

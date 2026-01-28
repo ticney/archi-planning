@@ -72,7 +72,7 @@ development_status:
 
   # Epic 5: Platform Administration & Operations
   epic-5: in-progress
-  5-1-dynamic-checklist-management-the-brain: backlog
+  5-1-dynamic-checklist-management-the-brain: done
   5-2-automated-notifications: backlog
   5-3-audit-logging: backlog
   5-4-scheduler-availability-rules: backlog

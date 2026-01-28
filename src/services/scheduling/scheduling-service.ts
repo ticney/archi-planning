@@ -110,7 +110,9 @@ export async function bookSlot(requestId: string, startAt: Date): Promise<{ succ
     }
 
     // 3. Calculate Check Duration
-    const duration = calculateSlotDuration(request.topic);
+    const topic = request.topic as GovernanceTopic; // Cast as we checked status is valid(ated)
+    if (!topic) return { success: false, error: 'Topic not set' };
+    const duration = calculateSlotDuration(topic);
     const endAt = addMinutes(startAt, duration);
 
     // 4. Check Availability (Concurrency Check)
