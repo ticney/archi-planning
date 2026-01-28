@@ -45,7 +45,7 @@ development_status:
   1-1-user-authentication-login: done
   1-2-role-based-access-control-rbac-foundation: done
   1-3-admin-user-role-management: done
-  1-4-global-navigation-layout: backlog
+  1-4-global-navigation-layout: done
   epic-1-retrospective: optional
 
   # Epic 2: Governance Request Submission (The Leader)
