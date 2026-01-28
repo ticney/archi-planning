@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { CreateGovernanceRequestInput, GovernanceRequest, GovernanceTopic, RecordAttachmentInput, Attachment } from '@/types/schemas/governance-schema';
 import { getMissingProofs } from './governance-rules';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { NotificationService } from '../notification/notification-service';
 import { calculateSlotDuration } from '../scheduling/slot-rules';
 
 // Legacy fallback for requests created before dynamic rules
@@ -193,6 +195,7 @@ export class GovernanceService {
             return [];
         }
 
+        console.log(`[DEBUG getAttachments] Request ${requestId}, Items: ${data?.length}`, JSON.stringify(data));
         return data;
     }
 
@@ -349,7 +352,28 @@ export class GovernanceService {
             throw new Error(`Failed to validate request: ${error.message}`);
         }
 
-        // TODO: Send notification stub
+        // 3. Send Notification
+        try {
+            const admin = createAdminClient();
+            // Get requester email
+            const { data: { user } } = await admin.auth.admin.getUserById(request.created_by);
+
+            if (user?.email) {
+                const notificationService = new NotificationService();
+                // Generate link to booking page (assuming /booking or /governance/booking)
+                const bookingLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/governance/booking/${requestId}`;
+
+                await notificationService.sendReadyToBookEmail(
+                    user.email,
+                    request.title,
+                    bookingLink
+                );
+            }
+        } catch (notifyError) {
+            console.error('[Notification] Failed to send ReadyToBook email:', notifyError);
+            // Don't fail the validation if notification fails, but log it
+        }
+
         console.log(`[Notification] Request ${requestId} validated by ${reviewerId}`);
     }
 
@@ -397,7 +421,26 @@ export class GovernanceService {
             throw new Error(`Failed to reject request: ${error.message}`);
         }
 
-        // TODO: Send notification stub
+        // 3. Send Notification
+        try {
+            const admin = createAdminClient();
+            const { data: { user } } = await admin.auth.admin.getUserById(request.created_by);
+
+            if (user?.email) {
+                const notificationService = new NotificationService();
+                const requestLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/governance/requests/${requestId}`;
+
+                await notificationService.sendRejectionEmail(
+                    user.email,
+                    request.title,
+                    reason,
+                    requestLink
+                );
+            }
+        } catch (notifyError) {
+            console.error('[Notification] Failed to send Rejection email:', notifyError);
+        }
+
         console.log(`[Notification] Request ${requestId} rejected by ${reviewerId}. Reason: ${reason}`);
     }
 

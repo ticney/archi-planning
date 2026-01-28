@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getAvailableSlots, bookSlot, confirmSlot } from './scheduling-service';
-import { NotificationService } from '@/services/notifications/notification-service';
+import { NotificationService } from '@/services/notification/notification-service';
 import { AuditService } from '@/services/audit/audit-service';
 import { createClient } from '@/lib/supabase/server';
 import { startOfDay, endOfDay, setHours, setMinutes, addMinutes } from 'date-fns';
@@ -10,12 +10,28 @@ vi.mock('@/lib/supabase/server', () => ({
     createClient: vi.fn()
 }));
 
-// Mock Notification and Audit Services
-vi.mock('@/services/notifications/notification-service', () => ({
-    NotificationService: {
-        sendConfirmationEmail: vi.fn()
-    }
+vi.mock('@/lib/supabase/admin', () => ({
+    createAdminClient: vi.fn(() => ({
+        auth: {
+            admin: {
+                getUserById: vi.fn().mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
+                listUsers: vi.fn(),
+            }
+        },
+        from: vi.fn(() => ({
+            select: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null })
+            }))
+        }))
+    }))
 }));
+
+// Mock Notification and Audit Services
+vi.mock('@/services/notification/notification-service', () => {
+    const NotificationService = vi.fn();
+    NotificationService.prototype.sendConfirmationEmail = vi.fn();
+    return { NotificationService };
+});
 
 vi.mock('@/services/audit/audit-service', () => ({
     AuditService: {
@@ -254,9 +270,12 @@ describe('Scheduling Service', () => {
             expect(mockSupabase.update).toHaveBeenCalledWith({ status: 'confirmed' });
 
             // Verify Side Effects
-            expect(NotificationService.sendConfirmationEmail).toHaveBeenCalledWith(
-                mockRequest.created_by,
-                expect.anything()
+            const mockNotificationInstance = (NotificationService as any).mock.instances[0];
+            expect(mockNotificationInstance.sendConfirmationEmail).toHaveBeenCalledWith(
+                'test@example.com', // Converted from user-uuid by mock admin client
+                expect.anything(), // title
+                expect.any(Date), // slotDate
+                30 // duration (standard)
             );
             expect(AuditService.logAction).toHaveBeenCalledWith(
                 'confirm_slot',

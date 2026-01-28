@@ -195,6 +195,29 @@ So that I can ensure the right people have the right access permissions.
 **When** they attempt to access the User Management features
 **Then** access is strictly denied
 
+### Story 1.4: Global Navigation & Layout
+
+As a User,
+I want a persistent navigation rail/bar,
+So that I can switch between contexts (Project, Review, Schedule) without losing my place.
+
+**Acceptance Criteria:**
+
+**Given** a logged-in user
+**When** they view any page
+**Then** the "Navigation Rail" is visible on the left (Desktop)
+**And** it contains links to:
+  - Dashboard (Home)
+  - Projects (Leader)
+  - Reviews (Reviewer)
+  - Schedule (Organizer)
+  - Settings (Admin)
+**And** links are visible/hidden based on RBAC roles (e.g. Leader doesn't see Admin)
+**And** the current active route is visually highlighted
+
+**Given** a mobile/tablet user
+**Then** the navigation collapses to a responsive menu (Hamburger)
+
 ### Epic 2: Governance Request Submission (The Leader)
 
 **Goal:** Enable Project Leaders to self-serve create governance requests, select topics, and upload mandatory proofs (The "Wizard" flow), ensuring "No read, no meet".

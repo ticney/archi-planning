@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { GovernanceRequest, governanceRequestStatusSchema, GovernanceTopic } from '@/types/schemas/governance-schema';
 import { calculateSlotDuration } from './slot-rules';
 import { addMinutes, startOfDay, endOfDay, setHours, setMinutes, isBefore, isAfter, isWeekend } from 'date-fns';
-import { NotificationService } from '../notifications/notification-service';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { NotificationService } from '../notification/notification-service';
 import { AuditService } from '../audit/audit-service';
 
 
@@ -241,11 +242,63 @@ export async function confirmSlot(requestId: string, actorId: string): Promise<{
 
     // 4. Side Effects (Notifications & Audit)
     try {
-        await NotificationService.sendConfirmationEmail(request.created_by, {
-            requestId: request.id,
-            title: request.title,
-            startAt: request.booking_start_at
-        });
+        const admin = createAdminClient();
+
+        // Fetch requester email
+        const { data: { user: requester } } = await admin.auth.admin.getUserById(request.created_by);
+        const recipients: string[] = [];
+        if (requester?.email) recipients.push(requester.email);
+
+        // Fetch Board Members (Reviewers) emails
+        // MVP: Assuming 'reviewer' role constitutes the Board
+        const { data: boardProfiles } = await admin
+            .from('profiles')
+            .select('user_id')
+            .eq('role', 'reviewer');
+
+        if (boardProfiles && boardProfiles.length > 0) {
+            // We need to fetch emails for these users. auth.admin.listUsers() returns all, checking one by one is slow.
+            // But listUsers supports page? Or we can just iterate. Board members shouldn't be too many.
+            // Or better: use the mapping if we have few.
+            // Actually, we can just loop getUserById in parallel.
+            const boardUserPromises = boardProfiles.map(p => admin.auth.admin.getUserById(p.user_id));
+            const boardUsers = await Promise.all(boardUserPromises);
+            boardUsers.forEach(u => {
+                if (u.data.user?.email) recipients.push(u.data.user.email);
+            });
+        }
+
+        if (recipients.length > 0) {
+            const notificationService = new NotificationService();
+            const slotDate = new Date(request.booking_start_at!); // Confirmed to exist
+            const topic = request.topic as GovernanceTopic;
+            const duration = calculateSlotDuration(topic);
+
+            // Send to each recipient? Or one email with multiple TO/BCC?
+            // resend supports string[] for to.
+            // But ICS invite usually works best if sent individually or as main recipient.
+            // Let's send individually to ensure privacy or cleaner headers, OR just send to all.
+            // Story: "sent/attached to the Project Leader and Board Members"
+            // Let's send to all in 'to'.
+
+            // Deduplicate emails
+            const uniqueRecipients = Array.from(new Set(recipients));
+
+            // Wait, NotificationService.sendConfirmationEmail takes 'to: string'. 
+            // I should update it to array or loop.
+            // loop is safer for now if I don't want to change the service signature (though I defined it myself).
+            // Actually `resend` allows array. But my service signature is `to: string`.
+            // I'll loop.
+
+            await Promise.all(uniqueRecipients.map(email =>
+                notificationService.sendConfirmationEmail(
+                    email,
+                    request.title,
+                    slotDate,
+                    duration
+                )
+            ));
+        }
 
         await AuditService.logAction('confirm_slot', {
             requestId: request.id,

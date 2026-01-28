@@ -19,6 +19,37 @@ vi.mock('@/lib/supabase/server', () => ({
     })),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+    createAdminClient: vi.fn(() => ({
+        auth: {
+            admin: {
+                getUserById: vi.fn().mockResolvedValue({ data: { user: { email: 'test@example.com' } } }),
+                listUsers: vi.fn(),
+            }
+        },
+        from: vi.fn(() => ({
+            select: vi.fn(() => ({
+                eq: vi.fn().mockResolvedValue({ data: [], error: null })
+            }))
+        }))
+    }))
+}));
+
+// Mock NotificationService
+const mockSendRejectionEmail = vi.fn();
+const mockSendReadyToBookEmail = vi.fn();
+const mockSendConfirmationEmail = vi.fn();
+
+vi.mock('@/services/notification/notification-service', () => {
+    return {
+        NotificationService: class {
+            sendRejectionEmail = mockSendRejectionEmail;
+            sendReadyToBookEmail = mockSendReadyToBookEmail;
+            sendConfirmationEmail = mockSendConfirmationEmail;
+        }
+    };
+});
+
 describe('GovernanceService', () => {
     let service: GovernanceService;
 
@@ -34,9 +65,12 @@ describe('GovernanceService', () => {
             eq: mockEq,
             single: mockSingle,
             order: mockOrder,
-            limit: vi.fn().mockImplementation(function (this: any) { return this; }), // Return chain for .limit()
+            limit: vi.fn().mockReturnThis(),
             then: (resolve: any) => resolve({ data: [{ id: '123' }], error: null }) // Make chain awaitable for updates, returning dummy data
         };
+
+        // Default implementation for mockOrder to behave like a chain unless overridden
+        mockOrder.mockImplementation(() => chain); // Return chain by default
 
         mockFrom.mockReturnValue(chain);
         mockInsert.mockReturnValue(chain);
@@ -103,7 +137,7 @@ describe('GovernanceService', () => {
         mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
 
         // 2. getAttachments -> select().eq().order()
-        mockOrder.mockResolvedValueOnce({ data: mockAttachments, error: null });
+        mockOrder.mockImplementation(() => Promise.resolve({ data: mockAttachments, error: null }));
 
         await service.submitRequest(requestId);
 
@@ -132,7 +166,7 @@ describe('GovernanceService', () => {
         ];
 
         mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
-        mockOrder.mockResolvedValueOnce({ data: mockAttachments, error: null });
+        mockOrder.mockImplementation(() => Promise.resolve({ data: mockAttachments, error: null }));
 
         await expect(service.submitRequest(requestId)).rejects.toThrow(/Missing mandatory documents/);
     });
@@ -211,6 +245,12 @@ describe('GovernanceService', () => {
                 validated_by: reviewerId,
             }));
             expect(mockEq).toHaveBeenCalledWith('id', requestId);
+
+            expect(mockSendReadyToBookEmail).toHaveBeenCalledWith(
+                'test@example.com',
+                expect.any(String), // Title might be undefined in the minimal mock above if we didn't set it, let's look at mockRequest
+                expect.stringContaining(requestId)
+            );
         });
 
         it('should throw error if request is not pending_review', async () => {
@@ -231,6 +271,37 @@ describe('GovernanceService', () => {
             mockSingle.mockResolvedValueOnce({ data: null, error: null });
             await expect(service.validateRequest('999', 'reviewer-1'))
                 .rejects.toThrow('Request not found');
+        });
+    });
+
+    describe('rejectRequest', () => {
+        it('should reject a pending request and send notification', async () => {
+            const requestId = '123';
+            const reviewerId = 'reviewer-1';
+            const reason = 'Budget too high';
+            const mockRequest = {
+                id: requestId,
+                title: 'Project A',
+                status: 'pending_review',
+                created_by: 'user-123'
+            };
+
+            mockSingle.mockResolvedValueOnce({ data: mockRequest, error: null });
+
+            await service.rejectRequest(requestId, reason, reviewerId);
+
+            expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                status: 'draft',
+                rejection_reason: reason,
+            }));
+
+            // Verify Notification
+            expect(mockSendRejectionEmail).toHaveBeenCalledWith(
+                'test@example.com',
+                'Project A',
+                reason,
+                expect.stringContaining(requestId)
+            );
         });
     });
 
